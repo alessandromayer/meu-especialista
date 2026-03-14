@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meu Especialista — Plataforma All-in-One</title>
+<link rel="stylesheet" href="css/design-system.css">
+<style>
+  /* SPINNER animation */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #gen-spinner { animation: spin 1s linear infinite; }
+
+  /* Custom scrollbar for sidebar */
+  .nav-body::-webkit-scrollbar { width: 3px; }
+  .nav-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+  /* Smooth page transitions */
+  #main-content { transition: opacity .1s; }
+
+  /* Toggle switch alignment */
+  [data-on="1"] > div { right: 2px !important; left: auto !important; }
+  [data-on="0"] > div { left: 2px !important; right: auto !important; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-block">
+        <div class="logo-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round">
+            <path d="M10 2C5.48 2 2 5.48 2 10s3.48 8 8 8 8-3.48 8-8S14.52 2 10 2z"/>
+            <path d="M7 10h6M10 7v6"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-name">Meu Especialista</div>
+          <div class="logo-sub">All-in-One · Estética</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="nav-body">
+      <div class="nav-section-label">Principal</div>
+
+      <div class="nav-item active" data-page="dashboard" onclick="App.navigate('dashboard')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor" opacity=".8">
+          <rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="8" y="1" width="6" height="6" rx="1.5"/>
+          <rect x="1" y="8" width="6" height="6" rx="1.5"/><rect x="8" y="8" width="6" height="6" rx="1.5"/>
+        </svg>
+        Dashboard
+      </div>
+
+      <div class="nav-section-label">CRM</div>
+
+      <div class="nav-item" data-page="crm" onclick="App.navigate('crm')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+          <circle cx="6" cy="5" r="3"/><path d="M1 13c0-2.76 2.24-5 5-5s5 2.24 5 5"/>
+          <circle cx="12" cy="7" r="2"/><path d="M12 11c1.66 0 3 1.34 3 3"/>
+        </svg>
+        Pacientes
+        <span class="nav-badge badge-blue">48</span>
+      </div>
+
+      <div class="nav-item" data-page="agenda" onclick="App.navigate('agenda')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+          <rect x="1" y="2" width="13" height="11" rx="1.5"/><path d="M4 1v2M11 1v2M1 6h13"/>
+        </svg>
+        Agenda
+      </div>
+
+      <div class="nav-item" data-page="financeiro" onclick="App.navigate('financeiro')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+          <path d="M1 11l3-4 3 2 3-5 4 4"/>
+        </svg>
+        Financeiro
+      </div>
+
+      <div class="nav-section-label">Clínica Digital</div>
+
+      <div class="nav-item" data-page="simulator" onclick="App.navigate('simulator')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+          <path d="M7.5 1.5l2 5h5l-4 3 1.5 5-4.5-3-4.5 3 1.5-5-4-3h5z"/>
+        </svg>
+        Simulador 3D
+        <span class="nav-badge badge-red">3</span>
+      </div>
+
+      <div class="nav-item" data-page="prontuario" onclick="App.navigate('prontuario')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+          <path d="M7.5 1a4 4 0 014 4v4a4 4 0 01-8 0V5a4 4 0 014-4z"/>
+          <path d="M3.5 9a4 4 0 008 0M7.5 13v1.5M6 14.5h3"/>
+        </svg>
+        Prontuário IA
+      </div>
+
+      <div class="nav-item" data-page="galeria" onclick="App.navigate('galeria')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+          <rect x="1" y="1" width="13" height="13" rx="2"/>
+          <circle cx="5" cy="5" r="1.5"/><path d="M1 10l4-3 3 2 3-3 3 2"/>
+        </svg>
+        Galeria
+      </div>
+
+      <div class="nav-section-label">Sistema</div>
+
+      <div class="nav-item" data-page="configuracoes" onclick="App.navigate('configuracoes')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+          <circle cx="7.5" cy="7.5" r="2"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1 1M11.1 11.1l1 1M2.9 12.1l1-1M11.1 3.9l1-1"/>
+        </svg>
+        Definições
+      </div>
+
+      <div class="nav-item" style="color:var(--muted)">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4">
+          <circle cx="7.5" cy="7.5" r="6"/><path d="M7.5 5v3M7.5 9.5v.5"/>
+        </svg>
+        Ajuda & suporte
+      </div>
+    </nav>
+
+    <!-- SURGEON CARD -->
+    <div class="sidebar-user">
+      <div class="user-card">
+        <div class="user-avatar av-blue">RV</div>
+        <div style="flex:1">
+          <div class="user-name">Dr. Rodrigo Varela</div>
+          <div class="user-spec"><span class="online-dot"></span>Online · Plano Pro</div>
+        </div>
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="var(--muted)" stroke-width="1.5"><path d="M2 4l4.5 4.5L11 4"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div style="flex:1">
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+    </div>
+    <div class="topbar-actions">
+      <div class="topbar-date">Sáb, 14 Mar 2026 · 09:41</div>
+
+      <!-- QUICK NEW BUTTON -->
+      <div style="position:relative" id="quick-menu-wrap">
+        <button class="btn btn-ghost btn-sm" onclick="toggleQuickMenu()">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6.5 1v11M1 6.5h11"/></svg>
+          Novo
+        </button>
+        <div id="quick-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:6px;min-width:200px;z-index:100">
+          ${[
+            ['crm','👤','Novo paciente'],
+            ['simulator','🫁','Nova simulação 3D'],
+            ['prontuario','🎙️','Iniciar consulta IA'],
+            ['agenda','📅','Novo agendamento'],
+          ].map(([page,icon,label])=>`
+          <div onclick="toggleQuickMenu();App.navigate('${page}')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
+            <span>${icon}</span>${label}
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- NOTIFICATIONS -->
+      <button class="btn btn-ghost btn-sm" style="position:relative" onclick="App.navigate('crm')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7.5 1.5a5 5 0 015 5v3l1 1.5h-12l1-1.5v-3a5 5 0 015-5z"/><path d="M6 12.5a1.5 1.5 0 003 0"/></svg>
+        <span style="position:absolute;top:2px;right:2px;width:7px;height:7px;background:var(--danger);border-radius:50%;border:1.5px solid var(--bg)"></span>
+      </button>
+
+      <!-- IA STATUS -->
+      <div style="display:flex;align-items:center;gap:6px;background:var(--pron-dim);border:1px solid rgba(52,211,153,.2);padding:5px 10px;border-radius:20px;font-size:11px;color:var(--pron)">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--pron);animation:pulse 2s infinite"></span>
+        IA ativa
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main id="main-content" class="main-content"></main>
+
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/pages.js"></script>
+<script>
+  // Init app
+  window.addEventListener('DOMContentLoaded', () => {
+    App.navigate('dashboard');
+  });
+
+  window.toggleQuickMenu = function() {
+    const m = document.getElementById('quick-menu');
+    m.style.display = m.style.display === 'none' ? 'block' : 'none';
+  };
+
+  document.addEventListener('click', function(e) {
+    const wrap = document.getElementById('quick-menu-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+      const m = document.getElementById('quick-menu');
+      if (m) m.style.display = 'none';
+    }
+  });
+</script>
+</body>
+</html>
