@@ -1,0 +1,1959 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meu Especialista — Plataforma All-in-One</title>
+<!-- ================================================
+     SUPABASE AUTH LAYER
+     Substitui SUPABASE_URL e SUPABASE_ANON_KEY
+     pelos valores do teu projeto em supabase.com
+     ================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ─── CONFIG — cola aqui os teus valores do Supabase ───
+const SUPABASE_URL  = 'https://acqpjtxpicmxciswkfra.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_qNJCUFUueTE9R5qXjk0irQ_jjdchZxT';
+// ──────────────────────────────────────────────────────
+
+const _supa = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Estado global de auth
+window.AuthState = {
+  user: null,
+  session: null,
+  loading: true
+};
+
+// Inicializar — verificar se já há sessão
+async function initAuth() {
+  const { data: { session } } = await _supa.auth.getSession();
+  if (session) {
+    AuthState.user    = session.user;
+    AuthState.session = session;
+    showApp();
+  } else {
+    showAuth('login');
+  }
+
+  // Ouvir mudanças de auth
+  _supa.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      AuthState.user    = session.user;
+      AuthState.session = session;
+      showApp();
+    }
+    if (event === 'SIGNED_OUT') {
+      AuthState.user    = null;
+      AuthState.session = null;
+      showAuth('login');
+    }
+  });
+}
+
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display   = 'grid';
+  App.navigate('dashboard');
+  // Preencher nome do utilizador na sidebar
+  const email = AuthState.user?.email || '';
+  const name  = AuthState.user?.user_metadata?.name || email.split('@')[0];
+  const el = document.getElementById('sidebar-user-name');
+  if (el) el.textContent = name;
+  const elSpec = document.getElementById('sidebar-user-spec');
+  if (elSpec) elSpec.textContent = email;
+}
+
+function showAuth(mode) {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app-shell').style.display   = 'none';
+  renderAuthScreen(mode);
+}
+
+// ─── AUTH ACTIONS ───────────────────────────────────
+window.authLogin = async function() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-pass').value;
+  const btn   = document.getElementById('auth-submit');
+  const err   = document.getElementById('auth-error');
+
+  if (!email || !pass) { showAuthError('Preenche email e password.'); return; }
+
+  btn.textContent = 'A entrar...';
+  btn.disabled = true;
+
+  const { error } = await _supa.auth.signInWithPassword({ email, password: pass });
+  if (error) {
+    showAuthError(error.message === 'Invalid login credentials'
+      ? 'Email ou password incorretos.'
+      : error.message);
+    btn.textContent = 'Entrar';
+    btn.disabled = false;
+  }
+};
+
+window.authRegister = async function() {
+  const name  = document.getElementById('auth-name')?.value.trim();
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-pass').value;
+  const btn   = document.getElementById('auth-submit');
+
+  if (!email || !pass) { showAuthError('Preenche todos os campos.'); return; }
+  if (pass.length < 6) { showAuthError('Password mínimo 6 caracteres.'); return; }
+
+  btn.textContent = 'A criar conta...';
+  btn.disabled = true;
+
+  const { error } = await _supa.auth.signUp({
+    email, password: pass,
+    options: { data: { name: name || email.split('@')[0] } }
+  });
+
+  if (error) {
+    showAuthError(error.message);
+    btn.textContent = 'Criar conta';
+    btn.disabled = false;
+  } else {
+    showAuthError('✅ Confirma o teu email para activar a conta!', true);
+  }
+};
+
+window.authResetPassword = async function() {
+  const email = document.getElementById('auth-email').value.trim();
+  if (!email) { showAuthError('Insere o teu email.'); return; }
+  await _supa.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href
+  });
+  showAuthError('✅ Email de recuperação enviado!', true);
+};
+
+window.authLogout = async function() {
+  await _supa.auth.signOut();
+};
+
+function showAuthError(msg, isSuccess = false) {
+  const el = document.getElementById('auth-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = isSuccess ? 'var(--pron)' : 'var(--danger)';
+  el.style.background = isSuccess ? 'rgba(52,211,153,.08)' : 'rgba(248,113,113,.08)';
+  el.style.border = isSuccess ? '1px solid rgba(52,211,153,.2)' : '1px solid rgba(248,113,113,.2)';
+  el.style.display = 'block';
+}
+
+// ─── AUTH SCREEN RENDERER ───────────────────────────
+function renderAuthScreen(mode) {
+  const screen = document.getElementById('auth-screen');
+  const isLogin    = mode === 'login';
+  const isRegister = mode === 'register';
+  const isReset    = mode === 'reset';
+
+  screen.innerHTML = `
+  <div style="width:100%;max-width:420px;padding:24px">
+
+    <!-- LOGO -->
+    <div style="text-align:center;margin-bottom:36px">
+      <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--sim),var(--crm));display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+          <path d="M13 2C7.48 2 3 6.48 3 13s4.48 11 10 11 10-4.48 10-11S18.52 2 13 2z"/>
+          <path d="M9 13h8M13 9v8"/>
+        </svg>
+      </div>
+      <div style="font-size:20px;font-weight:700;letter-spacing:-.4px">Meu Especialista</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px">
+        ${isLogin ? 'Entra na tua conta' : isRegister ? 'Cria a tua conta gratuita' : 'Recuperar password'}
+      </div>
+    </div>
+
+    <!-- CARD -->
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:28px">
+
+      <!-- ERROR / SUCCESS -->
+      <div id="auth-error" style="display:none;padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:16px;line-height:1.5"></div>
+
+      ${isRegister ? `
+      <div class="field">
+        <label>Nome completo</label>
+        <input class="input" id="auth-name" type="text" placeholder="Dr. João Silva" autocomplete="name" onkeydown="if(event.key==='Enter')authRegister()">
+      </div>` : ''}
+
+      <div class="field">
+        <label>Email</label>
+        <input class="input" id="auth-email" type="email" placeholder="dr.silva@clinica.com" autocomplete="email"
+          onkeydown="if(event.key==='Enter')${isLogin?'authLogin()':isRegister?'authRegister()':'authResetPassword()'}">
+      </div>
+
+      ${!isReset ? `
+      <div class="field" style="margin-bottom:${isLogin?'8px':'16px'}">
+        <label>Password</label>
+        <input class="input" id="auth-pass" type="password" placeholder="${isLogin?'A tua password':'Mínimo 6 caracteres'}" autocomplete="${isLogin?'current-password':'new-password'}"
+          onkeydown="if(event.key==='Enter')${isLogin?'authLogin()':'authRegister()'}">
+      </div>` : ''}
+
+      ${isLogin ? `
+      <div style="text-align:right;margin-bottom:18px">
+        <span onclick="showAuth('reset')" style="font-size:11px;color:var(--crm);cursor:pointer">Esqueci a password</span>
+      </div>` : ''}
+
+      <button id="auth-submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:13px;border-radius:10px"
+        onclick="${isLogin?'authLogin()':isRegister?'authRegister()':'authResetPassword()'}">
+        ${isLogin ? 'Entrar' : isRegister ? 'Criar conta' : 'Enviar email de recuperação'}
+      </button>
+
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:12px;color:var(--muted)">
+        ${isLogin
+          ? `Não tens conta? <span onclick="showAuth('register')" style="color:var(--crm);cursor:pointer;font-weight:500">Regista-te grátis</span>`
+          : isRegister
+          ? `Já tens conta? <span onclick="showAuth('login')" style="color:var(--crm);cursor:pointer;font-weight:500">Entrar</span>`
+          : `<span onclick="showAuth('login')" style="color:var(--crm);cursor:pointer;font-weight:500">← Voltar ao login</span>`
+        }
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:20px;font-size:10px;color:var(--faint)">
+      🔒 Dados protegidos · LGPD compliant · Encriptação AES-256
+    </div>
+  </div>`;
+}
+</script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #07090f;
+  --s1: #0e1118;
+  --s2: #151922;
+  --s3: #1c2130;
+  --border: #1e2338;
+  --b2: #2a304d;
+  --b3: #363d5c;
+
+  --crm: #4f9cf9;
+  --crm-dim: rgba(79,156,249,.12);
+  --sim: #a78bfa;
+  --sim-dim: rgba(167,139,250,.12);
+  --pron: #34d399;
+  --pron-dim: rgba(52,211,153,.12);
+  --ia: #f59e0b;
+  --ia-dim: rgba(245,158,11,.12);
+  --danger: #f87171;
+  --warn: #fbbf24;
+
+  --text: #eef0f8;
+  --text2: #c4c9e0;
+  --muted: #6b7499;
+  --faint: #3a4060;
+
+  --font: 'Sora', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; line-height: 1.5; }
+a { text-decoration: none; color: inherit; }
+button, input, select, textarea { font-family: var(--font); }
+
+/* LAYOUT */
+.app-shell { display: grid; grid-template-columns: 240px 1fr; grid-template-rows: auto 1fr; min-height: 100vh; }
+.sidebar { grid-row: 1/3; background: var(--s1); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.topbar { background: var(--s1); border-bottom: 1px solid var(--border); padding: 0 24px; height: 60px; display: flex; align-items: center; gap: 16px; }
+.main-content { overflow: auto; background: var(--bg); }
+
+/* SIDEBAR */
+.sidebar-logo { padding: 20px 18px 16px; border-bottom: 1px solid var(--border); }
+.logo-block { display: flex; align-items: center; gap: 10px; }
+.logo-icon { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, var(--sim), var(--crm)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.logo-name { font-size: 15px; font-weight: 700; letter-spacing: -.4px; }
+.logo-sub { font-size: 9px; color: var(--muted); letter-spacing: .8px; text-transform: uppercase; margin-top: 1px; }
+
+.nav-body { flex: 1; padding: 14px 10px; overflow-y: auto; }
+.nav-section-label { font-size: 9px; color: var(--faint); letter-spacing: 1px; text-transform: uppercase; padding: 4px 10px 6px; margin-top: 10px; }
+.nav-item { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: var(--r-sm); cursor: pointer; color: var(--muted); font-size: 12.5px; transition: all .15s; margin-bottom: 1px; position: relative; }
+.nav-item:hover { background: var(--s2); color: var(--text2); }
+.nav-item.active { background: var(--crm-dim); color: var(--crm); font-weight: 500; }
+.nav-item.active.sim { background: var(--sim-dim); color: var(--sim); }
+.nav-item.active.pron { background: var(--pron-dim); color: var(--pron); }
+.nav-item svg { flex-shrink: 0; }
+.nav-badge { margin-left: auto; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 20px; font-family: var(--mono); }
+.badge-blue { background: var(--crm-dim); color: var(--crm); }
+.badge-red { background: rgba(248,113,113,.15); color: var(--danger); }
+.badge-amber { background: var(--ia-dim); color: var(--ia); }
+
+.sidebar-user { padding: 14px; border-top: 1px solid var(--border); }
+.user-card { background: var(--s2); border-radius: var(--r-md); padding: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background .15s; }
+.user-card:hover { background: var(--s3); }
+.user-avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; }
+.user-name { font-size: 12px; font-weight: 600; line-height: 1.2; }
+.user-spec { font-size: 10px; color: var(--muted); }
+.online-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--pron); margin-right: 4px; }
+
+/* TOPBAR */
+.topbar-title { font-size: 15px; font-weight: 600; flex: 1; }
+.topbar-sub { font-size: 11px; color: var(--muted); }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.topbar-date { font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--s2); padding: 5px 10px; border-radius: var(--r-sm); border: 1px solid var(--border); }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: var(--r-sm); font-size: 12px; font-weight: 500; cursor: pointer; border: none; font-family: var(--font); transition: all .15s; white-space: nowrap; }
+.btn-primary { background: var(--crm); color: #fff; }
+.btn-primary:hover { background: #3a8ae8; }
+.btn-sim { background: var(--sim); color: #fff; }
+.btn-sim:hover { filter: brightness(1.1); }
+.btn-pron { background: var(--pron); color: #07090f; }
+.btn-pron:hover { filter: brightness(1.1); }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--b2); }
+.btn-sm { padding: 5px 12px; font-size: 11px; }
+.btn-danger { background: rgba(248,113,113,.15); color: var(--danger); border: 1px solid rgba(248,113,113,.2); }
+
+/* CARDS */
+.card { background: var(--s1); border: 1px solid var(--border); border-radius: var(--r-lg); }
+.card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+.card-title { font-size: 13px; font-weight: 600; flex: 1; }
+.card-body { padding: 20px; }
+
+/* METRIC CARDS */
+.metric-card { background: var(--s1); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px; position: relative; overflow: hidden; }
+.metric-card::before { content: ''; position: absolute; top: -20px; right: -20px; width: 80px; height: 80px; border-radius: 50%; opacity: .06; }
+.metric-card.blue::before { background: var(--crm); }
+.metric-card.purple::before { background: var(--sim); }
+.metric-card.green::before { background: var(--pron); }
+.metric-card.amber::before { background: var(--ia); }
+.metric-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .7px; margin-bottom: 10px; }
+.metric-value { font-size: 30px; font-weight: 300; letter-spacing: -1.5px; line-height: 1; margin-bottom: 6px; font-family: var(--mono); }
+.metric-unit { font-size: 14px; font-weight: 500; opacity: .5; }
+.metric-delta { font-size: 11px; }
+.delta-up { color: var(--pron); }
+.delta-dn { color: var(--danger); }
+.metric-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 14px; overflow: hidden; }
+.metric-bar-fill { height: 100%; border-radius: 2px; }
+
+/* TAGS / BADGES */
+.tag { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 600; letter-spacing: .3px; white-space: nowrap; }
+.tag-scheduled { background: var(--crm-dim); color: var(--crm); }
+.tag-consult { background: var(--sim-dim); color: var(--sim); }
+.tag-pending { background: var(--ia-dim); color: var(--ia); }
+.tag-done { background: var(--pron-dim); color: var(--pron); }
+.tag-cancelled { background: rgba(248,113,113,.12); color: var(--danger); }
+.tag-sim { background: var(--sim-dim); color: var(--sim); }
+
+/* TABLES */
+table { width: 100%; border-collapse: collapse; }
+thead th { font-size: 10px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 500; }
+tbody tr { border-bottom: 1px solid rgba(30,35,56,.7); cursor: pointer; transition: background .1s; }
+tbody tr:hover { background: var(--s2); }
+tbody tr:last-child { border-bottom: none; }
+td { padding: 11px 16px; font-size: 12px; vertical-align: middle; }
+
+/* FORMS */
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: .3px; }
+.input { width: 100%; background: var(--s2); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 9px 12px; color: var(--text); font-size: 13px; font-family: var(--font); transition: border-color .15s; }
+.input:focus { outline: none; border-color: var(--crm); }
+.input::placeholder { color: var(--faint); }
+.select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%236b7499' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px; }
+.textarea { resize: vertical; min-height: 80px; }
+
+/* AI BANNER */
+.ai-strip { background: linear-gradient(135deg, rgba(167,139,250,.08), rgba(79,156,249,.06)); border: 1px solid rgba(167,139,250,.2); border-radius: var(--r-lg); padding: 14px 18px; display: flex; align-items: center; gap: 14px; }
+.ai-strip-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--sim), var(--crm)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ai-pill { font-size: 9px; font-weight: 700; background: var(--sim-dim); color: var(--sim); padding: 2px 8px; border-radius: 20px; font-family: var(--mono); letter-spacing: .5px; }
+
+/* AVATAR */
+.avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.av-blue { background: var(--crm-dim); color: var(--crm); }
+.av-purple { background: var(--sim-dim); color: var(--sim); }
+.av-green { background: var(--pron-dim); color: var(--pron); }
+.av-amber { background: var(--ia-dim); color: var(--ia); }
+.av-red { background: rgba(248,113,113,.12); color: var(--danger); }
+
+/* PAGE PADDING */
+.page { padding: 24px; }
+.page-header { margin-bottom: 24px; }
+.page-title { font-size: 20px; font-weight: 700; letter-spacing: -.5px; margin-bottom: 4px; }
+.page-sub { font-size: 12px; color: var(--muted); }
+
+/* GRID HELPERS */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; }
+.grid-main { display: grid; grid-template-columns: 1fr 340px; gap: 18px; }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ANIMATIONS */
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+.fade-in { animation: fadeIn .3s ease; }
+.recording-pulse { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#gen-spinner { animation: spin 1s linear infinite; }
+.nav-body::-webkit-scrollbar { width: 3px; }
+.nav-body::-webkit-scrollbar-thumb { background: var(--border); }
+#main-content { transition: opacity .1s; }
+[data-on="1"] > div { right: 2px !important; left: auto !important; }
+[data-on="0"] > div { left: 2px !important; right: auto !important; }
+</style>
+</head>
+<body>
+<!-- AUTH SCREEN -->
+<div id="auth-screen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)">
+</div>
+
+<div class="app-shell" id="app-shell" style="display:none">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-block">
+        <div class="logo-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round">
+            <path d="M10 2C5.48 2 2 5.48 2 10s3.48 8 8 8 8-3.48 8-8S14.52 2 10 2z"/>
+            <path d="M7 10h6M10 7v6"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-name">Meu Especialista</div>
+          <div class="logo-sub">All-in-One · Estética</div>
+        </div>
+      </div>
+    </div>
+    <nav class="nav-body">
+      <div class="nav-section-label">Principal</div>
+      <div class="nav-item active" data-page="dashboard" onclick="App.navigate('dashboard')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor" opacity=".8"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="8" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="8" width="6" height="6" rx="1.5"/><rect x="8" y="8" width="6" height="6" rx="1.5"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-section-label">CRM</div>
+      <div class="nav-item" data-page="crm" onclick="App.navigate('crm')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="6" cy="5" r="3"/><path d="M1 13c0-2.76 2.24-5 5-5s5 2.24 5 5"/><circle cx="12" cy="7" r="2"/><path d="M12 11c1.66 0 3 1.34 3 3"/></svg>
+        Pacientes
+        <span class="nav-badge badge-blue">48</span>
+      </div>
+      <div class="nav-item" data-page="agenda" onclick="App.navigate('agenda')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="2" width="13" height="11" rx="1.5"/><path d="M4 1v2M11 1v2M1 6h13"/></svg>
+        Agenda
+      </div>
+      <div class="nav-item" data-page="financeiro" onclick="App.navigate('financeiro')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1 11l3-4 3 2 3-5 4 4"/></svg>
+        Financeiro
+      </div>
+      <div class="nav-section-label">Clínica Digital</div>
+      <div class="nav-item" data-page="simulator" onclick="App.navigate('simulator')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7.5 1.5l2 5h5l-4 3 1.5 5-4.5-3-4.5 3 1.5-5-4-3h5z"/></svg>
+        Simulador 3D
+        <span class="nav-badge badge-red">3</span>
+      </div>
+      <div class="nav-item" data-page="prontuario" onclick="App.navigate('prontuario')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7.5 1a4 4 0 014 4v4a4 4 0 01-8 0V5a4 4 0 014-4z"/><path d="M3.5 9a4 4 0 008 0M7.5 13v1.5M6 14.5h3"/></svg>
+        Prontuário IA
+      </div>
+      <div class="nav-item" data-page="galeria" onclick="App.navigate('galeria')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="13" height="13" rx="2"/><circle cx="5" cy="5" r="1.5"/><path d="M1 10l4-3 3 2 3-3 3 2"/></svg>
+        Galeria
+      </div>
+      <div class="nav-section-label">Sistema</div>
+      <div class="nav-item" data-page="configuracoes" onclick="App.navigate('configuracoes')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7.5" cy="7.5" r="2"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1 1M11.1 11.1l1 1M2.9 12.1l1-1M11.1 3.9l1-1"/></svg>
+        Definições
+      </div>
+      <div class="nav-item" style="color:var(--muted)">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7.5" cy="7.5" r="6"/><path d="M7.5 5v3M7.5 9.5v.5"/></svg>
+        Ajuda &amp; suporte
+      </div>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-card">
+        <div class="user-avatar av-blue">RV</div>
+        <div style="flex:1">
+          <div class="user-name" id="sidebar-user-name">Dr. Rodrigo Varela</div>
+          <div class="user-spec" id="sidebar-user-spec"><span class="online-dot"></span>Online · Plano Pro</div>
+        </div>
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="var(--muted)" stroke-width="1.5"><path d="M2 4l4.5 4.5L11 4"/></svg>
+      </div>
+      <button onclick="authLogout()" style="width:100%;margin-top:8px;padding:8px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:11px;font-family:var(--font);cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+        Terminar sessão
+      </button>
+    </div>
+  </aside>
+
+  <header class="topbar">
+    <div style="flex:1">
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+    </div>
+    <div class="topbar-actions">
+      <div class="topbar-date">Sáb, 14 Mar 2026 · 09:41</div>
+      <div style="position:relative" id="quick-menu-wrap">
+        <button class="btn btn-ghost btn-sm" onclick="toggleQuickMenu()">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6.5 1v11M1 6.5h11"/></svg>
+          Novo
+        </button>
+        <div id="quick-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:6px;min-width:200px;z-index:100">
+          <div onclick="toggleQuickMenu();App.navigate('crm')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''"><span>👤</span>Novo paciente</div>
+          <div onclick="toggleQuickMenu();App.navigate('simulator')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''"><span>🫁</span>Nova simulação 3D</div>
+          <div onclick="toggleQuickMenu();App.navigate('prontuario')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''"><span>🎙️</span>Iniciar consulta IA</div>
+          <div onclick="toggleQuickMenu();App.navigate('agenda')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''"><span>📅</span>Novo agendamento</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="position:relative" onclick="App.navigate('crm')">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7.5 1.5a5 5 0 015 5v3l1 1.5h-12l1-1.5v-3a5 5 0 015-5z"/><path d="M6 12.5a1.5 1.5 0 003 0"/></svg>
+        <span style="position:absolute;top:2px;right:2px;width:7px;height:7px;background:var(--danger);border-radius:50%;border:1.5px solid var(--bg)"></span>
+      </button>
+      <div style="display:flex;align-items:center;gap:6px;background:var(--pron-dim);border:1px solid rgba(52,211,153,.2);padding:5px 10px;border-radius:20px;font-size:11px;color:var(--pron)">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--pron);animation:pulse 2s infinite"></span>
+        IA ativa
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content" class="main-content"></main>
+</div>
+
+<script>
+// =============================================
+// MEU ESPECIALISTA — Shared App State & Router
+// =============================================
+
+const App = {
+  currentPage: 'dashboard',
+  currentPatient: null,
+  recordingActive: false,
+  simulationMode: null,
+
+  pages: {
+    dashboard: 'Dashboard',
+    crm: 'Pacientes & CRM',
+    simulator: 'Simulador 3D',
+    prontuario: 'Prontuário com IA',
+    agenda: 'Agenda',
+    financeiro: 'Financeiro',
+    galeria: 'Galeria',
+    configuracoes: 'Definições',
+  },
+
+  navigate(page, opts = {}) {
+    this.currentPage = page;
+    this.renderPage(page, opts);
+    this.updateNav(page);
+    window.scrollTo(0, 0);
+  },
+
+  updateNav(page) {
+    document.querySelectorAll('.nav-item').forEach(el => {
+      el.classList.remove('active', 'sim', 'pron');
+      if (el.dataset.page === page) {
+        el.classList.add('active');
+        if (page === 'simulator') el.classList.add('sim');
+        if (page === 'prontuario') el.classList.add('pron');
+      }
+    });
+    const title = document.getElementById('topbar-title');
+    if (title) title.textContent = this.pages[page] || page;
+  },
+
+  renderPage(page, opts = {}) {
+    const main = document.getElementById('main-content');
+    if (!main) return;
+    main.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--muted);font-size:12px;font-family:var(--mono)">Carregando módulo...</div>';
+    setTimeout(() => {
+      const renderer = PageRenderers[page];
+      if (renderer) {
+        main.innerHTML = renderer(opts);
+        main.classList.add('fade-in');
+        PageInit[page] && PageInit[page](opts);
+      }
+    }, 80);
+  }
+};
+
+// =============================================
+// MOCK DATA
+// =============================================
+const DB = {
+  surgeon: {
+    name: 'Dr. Rodrigo Varela',
+    spec: 'Cirurgia Plástica Estética',
+    initials: 'RV',
+    crm: 'CRM/SP 123456',
+    clinic: 'Clínica Varela Estética'
+  },
+
+  patients: [
+    { id: 1, name: 'Ana Sofia Mendes', age: 34, initials: 'AS', av: 'av-blue', phone: '+55 11 98765-4321', email: 'ana.mendes@email.com', procedure: 'Aumento Mamário', status: 'scheduled', stage: 'pre_op', nextDate: '18 Mar 2026', simType: 'breast', hasSimulation: true, hasProntuario: true, leadSource: 'Instagram', value: 18500 },
+    { id: 2, name: 'Beatriz Ferreira', age: 28, initials: 'BF', av: 'av-purple', phone: '+55 11 97654-3210', email: 'beatriz.f@email.com', procedure: 'Rinoplastia', status: 'pending', stage: 'simulation', nextDate: '21 Mar 2026', simType: 'face', hasSimulation: true, hasProntuario: false, leadSource: 'WhatsApp', value: 14000 },
+    { id: 3, name: 'Carla Rodrigues', age: 41, initials: 'CR', av: 'av-green', phone: '+55 11 96543-2109', email: 'carla.r@email.com', procedure: 'Lipoaspiração', status: 'consult', stage: 'consult', nextDate: '22 Mar 2026', simType: 'body', hasSimulation: false, hasProntuario: true, leadSource: 'Site', value: 12000 },
+    { id: 4, name: 'Maria Oliveira', age: 39, initials: 'MO', av: 'av-red', phone: '+55 11 95432-1098', email: 'maria.o@email.com', procedure: 'Blefaroplastia', status: 'review', stage: 'review', nextDate: '25 Mar 2026', simType: 'face', hasSimulation: true, hasProntuario: true, leadSource: 'Indicação', value: 8500 },
+    { id: 5, name: 'Tatiana Nunes', age: 31, initials: 'TN', av: 'av-amber', phone: '+55 11 94321-0987', email: 'tatiana.n@email.com', procedure: 'Abdominoplastia', status: 'done', stage: 'pos_op', nextDate: '12 Mar 2026', simType: 'body', hasSimulation: true, hasProntuario: true, leadSource: 'Google', value: 22000 },
+    { id: 6, name: 'Fernanda Castro', age: 36, initials: 'FC', av: 'av-blue', phone: '+55 11 93210-9876', email: 'fernanda.c@email.com', procedure: 'Mamoplastia Redutora', status: 'scheduled', stage: 'pre_op', nextDate: '28 Mar 2026', simType: 'breast', hasSimulation: false, hasProntuario: false, leadSource: 'Instagram', value: 16000 },
+    { id: 7, name: 'Juliana Pires', age: 44, initials: 'JP', av: 'av-purple', phone: '+55 11 92109-8765', email: 'juliana.p@email.com', procedure: 'Lifting Facial', status: 'consult', stage: 'lead', nextDate: '30 Mar 2026', simType: 'face', hasSimulation: false, hasProntuario: false, leadSource: 'Indicação', value: 28000 },
+    { id: 8, name: 'Priscila Lima', age: 29, initials: 'PL', av: 'av-green', phone: '+55 11 91098-7654', email: 'priscila.l@email.com', procedure: 'Rinoplastia', status: 'done', stage: 'pos_op', nextDate: '05 Mar 2026', simType: 'face', hasSimulation: true, hasProntuario: true, leadSource: 'WhatsApp', value: 14500 },
+  ],
+
+  agenda: [
+    { time: '09:00', duration: 45, patient: 'Ana Sofia Mendes', type: 'Pré-op · Aumento mamário', color: 'var(--crm)' },
+    { time: '10:30', duration: 30, patient: 'Beatriz Ferreira', type: 'Simulação 3D · Rinoplastia', color: 'var(--sim)' },
+    { time: '12:00', duration: 60, patient: 'ALMOÇO', type: '', color: 'var(--faint)' },
+    { time: '14:00', duration: 60, patient: 'Carla Rodrigues', type: 'Consulta inicial · Lipo', color: 'var(--pron)' },
+    { time: '15:30', duration: 45, patient: 'Maria Oliveira', type: 'Revisão pós-op · Blefaroplastia', color: 'var(--ia)' },
+    { time: '16:30', duration: 30, patient: 'Nova paciente', type: 'Avaliação inicial · A definir', color: 'var(--muted)' },
+  ],
+
+  metrics: {
+    patientsMonth: 142,
+    patientsGrowth: '+12%',
+    activeSims: 37,
+    simsNew: '+8',
+    conversionRate: 68,
+    conversionDelta: '+4pp',
+    pendingReview: 5,
+    revenue: 'R$ 187.500',
+    revenueGrowth: '+22%',
+    nps: 72,
+    satisfaction: 98
+  },
+
+  pipeline: {
+    lead:       [{ id: 7, name: 'Juliana Pires', proc: 'Lifting Facial', value: 28000, av: 'av-purple', src: 'Indicação' }],
+    consult:    [{ id: 3, name: 'Carla Rodrigues', proc: 'Lipoaspiração', value: 12000, av: 'av-green', src: 'Site' }],
+    simulation: [{ id: 2, name: 'Beatriz Ferreira', proc: 'Rinoplastia', value: 14000, av: 'av-purple', src: 'WhatsApp' }],
+    pre_op:     [{ id: 1, name: 'Ana Sofia Mendes', proc: 'Aumento Mamário', value: 18500, av: 'av-blue', src: 'Instagram' }, { id: 6, name: 'Fernanda Castro', proc: 'Mamoplastia', value: 16000, av: 'av-blue', src: 'Instagram' }],
+    pos_op:     [{ id: 5, name: 'Tatiana Nunes', proc: 'Abdominoplastia', value: 22000, av: 'av-amber', src: 'Google' }, { id: 8, name: 'Priscila Lima', proc: 'Rinoplastia', value: 14500, av: 'av-green', src: 'WhatsApp' }],
+  },
+};
+
+// =============================================
+// UTILITY FUNCTIONS
+// =============================================
+function statusTag(status) {
+  const map = {
+    scheduled: ['tag-scheduled', 'Agendada'],
+    pending: ['tag-pending', 'Pendente'],
+    consult: ['tag-consult', 'Consulta'],
+    review: ['tag-pending', 'Revisão'],
+    done: ['tag-done', 'Concluído'],
+    cancelled: ['tag-cancelled', 'Cancelado'],
+  };
+  const [cls, label] = map[status] || ['tag-consult', status];
+  return `<span class="tag ${cls}">${label}</span>`;
+}
+
+function simIcon(type, size = 40) {
+  const icons = {
+    breast: `<svg width="${size*0.7}" height="${size*0.7}" viewBox="0 0 28 28" fill="none"><ellipse cx="11" cy="17" rx="4" ry="3.5" fill="rgba(167,139,250,.3)" stroke="var(--sim)" stroke-width="1"/><ellipse cx="17" cy="17" rx="4" ry="3.5" fill="rgba(167,139,250,.3)" stroke="var(--sim)" stroke-width="1"/></svg>`,
+    face: `<svg width="${size*0.7}" height="${size*0.7}" viewBox="0 0 28 28" fill="none"><ellipse cx="14" cy="13" rx="6" ry="7" fill="rgba(79,156,249,.2)" stroke="var(--crm)" stroke-width="1"/><path d="M11 16 Q14 19 17 16" fill="none" stroke="var(--crm)" stroke-width="1"/><circle cx="11.5" cy="12" r="1" fill="var(--crm)" opacity=".7"/><circle cx="16.5" cy="12" r="1" fill="var(--crm)" opacity=".7"/></svg>`,
+    body: `<svg width="${size*0.7}" height="${size*0.7}" viewBox="0 0 28 28" fill="none"><rect x="9" y="6" width="10" height="17" rx="5" fill="rgba(52,211,153,.2)" stroke="var(--pron)" stroke-width="1"/><path d="M9 15 Q14 13 19 15" fill="none" stroke="var(--pron)" stroke-width="1"/></svg>`,
+  };
+  return icons[type] || icons.body;
+}
+
+function formatCurrency(v) {
+  return 'R$ ' + v.toLocaleString('pt-BR');
+}
+
+function initials(name) {
+  return name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+}
+// =============================================
+// PAGE RENDERERS — All modules of Meu Especialista
+// =============================================
+
+const PageRenderers = {};
+const PageInit = {};
+
+// =============================================
+// 1. DASHBOARD
+// =============================================
+PageRenderers.dashboard = () => `
+<div class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+    <div>
+      <div class="page-title">Bom dia, Dr. Varela 👋</div>
+      <div class="page-sub">Sábado, 14 de Março de 2026 · 3 consultas hoje</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="App.navigate('simulator')">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6.5 1.5l1.5 4h4l-3 2.5 1 4-3.5-2.5-3.5 2.5 1-4-3-2.5h4z"/></svg>
+        Nova Simulação
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="App.navigate('prontuario')">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6.5 1.5a4 4 0 014 4v3a4 4 0 01-8 0v-3a4 4 0 014-4z"/><path d="M3 7a3.5 3.5 0 007 0M6.5 10.5v1.5M5 12h3"/></svg>
+        Iniciar Consulta IA
+      </button>
+    </div>
+  </div>
+
+  <div class="ai-strip" style="margin-bottom:22px">
+    <div class="ai-strip-icon">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="white" stroke-width="1.6"><circle cx="9" cy="9" r="7"/><path d="M6 9h6M9 6v6"/></svg>
+    </div>
+    <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+        <span class="ai-pill">IA ATIVA</span>
+        <span style="font-size:12px;font-weight:500">Motor de inteligência ativo</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted)">3 leads qualificados esta manhã · Beatriz aguarda simulação 3D · 2 follow-ups agendados para hoje</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="App.navigate('crm')">Ver pipeline →</button>
+  </div>
+
+  <div class="grid-4" style="margin-bottom:22px">
+    <div class="metric-card blue">
+      <div class="metric-label">Pacientes — Março</div>
+      <div class="metric-value">142<span class="metric-unit"> pac</span></div>
+      <div class="metric-delta delta-up">↑ 12% vs Fevereiro</div>
+      <div class="metric-bar"><div class="metric-bar-fill" style="width:71%;background:var(--crm)"></div></div>
+    </div>
+    <div class="metric-card purple">
+      <div class="metric-label">Simulações 3D ativas</div>
+      <div class="metric-value">37<span class="metric-unit"> sim</span></div>
+      <div class="metric-delta delta-up">↑ 8 esta semana</div>
+      <div class="metric-bar"><div class="metric-bar-fill" style="width:37%;background:var(--sim)"></div></div>
+    </div>
+    <div class="metric-card green">
+      <div class="metric-label">Receita — Março</div>
+      <div class="metric-value" style="font-size:20px;letter-spacing:-.5px">187k<span class="metric-unit"> R$</span></div>
+      <div class="metric-delta delta-up">↑ 22% vs Fevereiro</div>
+      <div class="metric-bar"><div class="metric-bar-fill" style="width:65%;background:var(--pron)"></div></div>
+    </div>
+    <div class="metric-card amber">
+      <div class="metric-label">Conversão pós-3D</div>
+      <div class="metric-value">68<span class="metric-unit"> %</span></div>
+      <div class="metric-delta delta-up">↑ 4pp com simulação</div>
+      <div class="metric-bar"><div class="metric-bar-fill" style="width:68%;background:var(--ia)"></div></div>
+    </div>
+  </div>
+
+  <div class="grid-main">
+    <div>
+      <!-- PATIENTS TABLE -->
+      <div class="card" style="margin-bottom:18px">
+        <div class="card-header">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--crm)" stroke-width="1.5"><circle cx="6" cy="5" r="3"/><path d="M1 13c0-2.76 2.24-5 5-5s5 2.24 5 5"/><circle cx="12" cy="7" r="2"/><path d="M12 11c1.66 0 3 1.34 3 3"/></svg>
+          <span class="card-title">Pacientes recentes</span>
+          <button class="btn btn-ghost btn-sm" onclick="App.navigate('crm')">Ver todos →</button>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Paciente</th><th>Procedimento</th><th>Simulação</th><th>Status</th><th>Próxima consulta</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${DB.patients.slice(0,5).map(p => `
+            <tr onclick="App.navigate('crm',{patientId:${p.id}})">
+              <td><div style="display:flex;align-items:center;gap:10px">
+                <div class="avatar ${p.av}">${p.initials}</div>
+                <div><div style="font-weight:500;font-size:13px">${p.name}</div><div style="font-size:10px;color:var(--muted)">${p.age} anos</div></div>
+              </div></td>
+              <td>${p.procedure}</td>
+              <td>
+                <div style="width:44px;height:44px;border-radius:8px;background:var(--s2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;${!p.hasSimulation?'opacity:.3':''}">
+                  ${simIcon(p.simType)}
+                </div>
+              </td>
+              <td>${statusTag(p.status)}</td>
+              <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">${p.nextDate}</td>
+              <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();App.navigate('crm',{patientId:${p.id}})">Ver →</button></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- MINI CHART -->
+      <div class="card">
+        <div class="card-header">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ia)" stroke-width="1.5"><path d="M1 10l3-4 3 2 3-5 3 3"/></svg>
+          <span class="card-title">Simulações por semana (Março)</span>
+          <div style="display:flex;gap:12px;font-size:10px;color:var(--muted)">
+            <span><span style="display:inline-block;width:8px;height:8px;background:var(--sim);border-radius:2px;margin-right:4px"></span>Novas</span>
+            <span><span style="display:inline-block;width:8px;height:8px;background:var(--crm);border-radius:2px;margin-right:4px"></span>Revistas</span>
+          </div>
+        </div>
+        <div style="padding:16px 20px 20px">
+          <div style="display:flex;align-items:flex-end;gap:8px;height:80px">
+            ${[{a:40,b:20},{a:55,b:28},{a:35,b:18},{a:70,b:35},{a:48,b:24},{a:62,b:30},{a:80,b:40}].map((w,i) => `
+            <div style="flex:1;display:flex;flex-direction:column;gap:3px;align-items:center">
+              <div style="width:100%;height:${w.a}px;background:var(--sim);border-radius:4px 4px 0 0;opacity:.85"></div>
+              <div style="width:100%;height:${w.b}px;background:var(--crm);border-radius:4px 4px 0 0;opacity:.6;margin-top:-${w.b+3}px"></div>
+            </div>`).join('')}
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:8px;font-family:var(--mono)">
+            ${['Sem 8','Sem 9','Sem 10','Sem 11','Sem 12','Sem 13','Sem 14'].map(w=>`<span>${w}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <!-- AGENDA HOJE -->
+      <div class="card">
+        <div class="card-header">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--pron)" stroke-width="1.5"><rect x="1" y="2" width="12" height="10" rx="1.5"/><path d="M4 1v2M10 1v2M1 6h12"/></svg>
+          <span class="card-title">Agenda de hoje</span>
+          <button class="btn btn-ghost btn-sm" onclick="App.navigate('agenda')">Agenda →</button>
+        </div>
+        <div style="padding:4px 16px">
+          ${DB.agenda.filter(a => a.patient !== 'ALMOÇO').map(a => `
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div style="background:rgba(79,156,249,.08);border:1px solid rgba(79,156,249,.15);color:var(--crm);font-family:var(--mono);font-size:11px;padding:4px 7px;border-radius:6px;min-width:44px;text-align:center">${a.time}</div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:500">${a.patient}</div>
+              ${a.type ? `<div style="font-size:10px;color:var(--muted)">${a.type}</div>` : ''}
+            </div>
+            <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${a.duration}min</div>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- QUICK ACTIONS -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Acesso rápido</span></div>
+        <div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${[
+            ['simulator','var(--sim)','🫁','Simular 3D'],
+            ['prontuario','var(--pron)','🎙️','Consulta IA'],
+            ['crm','var(--crm)','📊','Pipeline'],
+            ['agenda','var(--ia)','📅','Agenda'],
+          ].map(([page,color,icon,label]) => `
+          <div onclick="App.navigate('${page}')" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="font-size:20px;margin-bottom:6px">${icon}</div>
+            <div style="font-size:11px;font-weight:500;color:${color}">${label}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- NPS -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Satisfação dos pacientes</span></div>
+        <div style="padding:16px 20px">
+          <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
+            <span style="font-size:38px;font-weight:300;font-family:var(--mono);color:var(--pron)">98</span>
+            <div><div style="font-size:12px;font-weight:500">% recomendam</div><div style="font-size:10px;color:var(--muted)">312 avaliações coletadas</div></div>
+          </div>
+          <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:10px">
+            <div style="width:98%;height:100%;background:linear-gradient(90deg,var(--pron),var(--crm));border-radius:3px"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px">
+            <span style="color:var(--muted)">Expectativa alinhada: <b style="color:var(--text)">94%</b></span>
+            <span style="color:var(--pron);font-weight:600">NPS +72</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+// =============================================
+// 2. CRM — Pipeline + Patient List + Detail
+// =============================================
+PageRenderers.crm = (opts = {}) => {
+  if (opts.patientId) return renderPatientDetail(opts.patientId);
+  return renderCRMMain();
+};
+
+function renderCRMMain() {
+  const stageLabels = { lead:'Lead', consult:'Consulta', simulation:'Simulação', pre_op:'Pré-op', pos_op:'Pós-op' };
+  const stageColors = { lead:'var(--ia)', consult:'var(--sim)', simulation:'var(--sim)', pre_op:'var(--crm)', pos_op:'var(--pron)' };
+
+  const totalValue = Object.values(DB.pipeline).flat().reduce((s,p) => s + p.value, 0);
+
+  return `
+<div class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+    <div>
+      <div class="page-title">CRM — Pipeline de Pacientes</div>
+      <div class="page-sub">${Object.values(DB.pipeline).flat().length} pacientes ativos · Pipeline total: <strong style="color:var(--pron)">${formatCurrency(totalValue)}</strong></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm">Exportar</button>
+      <button class="btn btn-primary btn-sm" onclick="showAddPatient()">+ Novo Paciente</button>
+    </div>
+  </div>
+
+  <!-- PIPELINE TABS -->
+  <div style="display:flex;gap:8px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px">
+    <button id="tab-pipeline" class="btn btn-primary btn-sm" onclick="switchTab('pipeline')">Pipeline Kanban</button>
+    <button id="tab-list" class="btn btn-ghost btn-sm" onclick="switchTab('list')">Lista Completa</button>
+    <button id="tab-analytics" class="btn btn-ghost btn-sm" onclick="switchTab('analytics')">Analytics</button>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <input class="input" style="width:180px;padding:6px 10px;font-size:11px" placeholder="🔍 Buscar paciente...">
+      <select class="input select" style="width:140px;padding:6px 10px;font-size:11px">
+        <option>Todos os procedimentos</option>
+        <option>Rinoplastia</option>
+        <option>Aumento mamário</option>
+        <option>Lipoaspiração</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="crm-tab-content">
+    <!-- KANBAN PIPELINE -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start">
+      ${Object.entries(DB.pipeline).map(([stage, patients]) => `
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+        <div style="padding:12px 14px;border-bottom:1px solid var(--border);background:var(--s2)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+            <span style="font-size:11px;font-weight:600;color:${stageColors[stage]}">${stageLabels[stage]}</span>
+            <span style="font-size:10px;background:var(--s3);color:var(--muted);padding:2px 7px;border-radius:20px;font-family:var(--mono)">${patients.length}</span>
+          </div>
+          <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${formatCurrency(patients.reduce((s,p)=>s+p.value,0))}</div>
+        </div>
+        <div style="padding:10px;display:flex;flex-direction:column;gap:8px;min-height:80px">
+          ${patients.map(p => `
+          <div onclick="App.navigate('crm',{patientId:${p.id}})" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:11px;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='${stageColors[stage]}'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+              <div class="avatar ${p.av}" style="width:28px;height:28px;font-size:10px">${initials(p.name)}</div>
+              <div style="font-size:11px;font-weight:500;line-height:1.3">${p.name}</div>
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:6px">${p.proc}</div>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:10px;font-family:var(--mono);color:var(--pron)">${formatCurrency(p.value)}</span>
+              <span style="font-size:9px;color:var(--muted);background:var(--s3);padding:2px 6px;border-radius:4px">${p.src}</span>
+            </div>
+          </div>`).join('')}
+          <button style="width:100%;padding:8px;border:1px dashed var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:11px;cursor:pointer;transition:all .15s;font-family:var(--font)" onmouseover="this.style.borderColor='${stageColors[stage]}';this.style.color='${stageColors[stage]}'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">+ Adicionar</button>
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- LEAD CAPTURE STRIP -->
+  <div style="margin-top:22px;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px 20px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="font-size:13px;font-weight:600">Canais de captação ativos</div>
+      <div style="flex:1"></div>
+      ${[
+        ['WhatsApp','var(--pron)','3 leads hoje'],
+        ['Instagram','var(--sim)','2 leads hoje'],
+        ['Site','var(--crm)','1 lead hoje'],
+        ['Indicação','var(--ia)','2 leads hoje'],
+        ['Google','var(--muted)','0 leads hoje'],
+      ].map(([name,color,count]) => `
+      <div style="display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:7px 12px">
+        <span style="width:7px;height:7px;border-radius:50%;background:${color};display:inline-block"></span>
+        <span style="font-size:11px;font-weight:500">${name}</span>
+        <span style="font-size:10px;color:var(--muted)">${count}</span>
+      </div>`).join('')}
+      <button class="btn btn-ghost btn-sm">Gerir canais</button>
+    </div>
+  </div>
+</div>`;
+}
+
+function renderPatientDetail(id) {
+  const p = DB.patients.find(x => x.id === id);
+  if (!p) return '<div class="page"><div class="page-title">Paciente não encontrado</div></div>';
+  return `
+<div class="page">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px">
+    <button class="btn btn-ghost btn-sm" onclick="App.navigate('crm')">← Voltar</button>
+    <div style="flex:1"></div>
+    <button class="btn btn-ghost btn-sm" onclick="App.navigate('simulator')">🫁 Simulação 3D</button>
+    <button class="btn btn-pron btn-sm" onclick="App.navigate('prontuario')">🎙️ Iniciar Consulta</button>
+  </div>
+
+  <div class="grid-2" style="gap:20px">
+    <!-- LEFT: PATIENT INFO -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="card-body">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px">
+            <div class="avatar ${p.av}" style="width:56px;height:56px;font-size:18px;font-weight:700">${p.initials}</div>
+            <div>
+              <div style="font-size:18px;font-weight:700">${p.name}</div>
+              <div style="font-size:12px;color:var(--muted)">${p.age} anos · ${p.procedure}</div>
+              <div style="margin-top:6px">${statusTag(p.status)}</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            ${[['📱',p.phone],['✉️',p.email],['📍','São Paulo, SP'],['📋',p.procedure],['💰',formatCurrency(p.value)],['📣',p.leadSource]].map(([icon,val])=>`
+            <div style="background:var(--s2);border-radius:8px;padding:10px;font-size:11px">
+              <span style="margin-right:6px">${icon}</span>${val}
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- TIMELINE -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Histórico</span></div>
+        <div style="padding:16px 20px">
+          ${[
+            {date:'12 Mar 2026',label:'Pós-op revisado',type:'pron',icon:'📋'},
+            {date:'05 Mar 2026',label:'Simulação 3D aprovada',type:'sim',icon:'🫁'},
+            {date:'28 Fev 2026',label:'Prontuário criado',type:'pron',icon:'🎙️'},
+            {date:'20 Fev 2026',label:'Primeira consulta',type:'crm',icon:'👤'},
+            {date:'15 Fev 2026',label:'Lead via Instagram',type:'crm',icon:'📣'},
+          ].map((e,i) => `
+          <div style="display:flex;gap:12px;padding:8px 0;${i>0?'border-top:1px solid var(--border)':''}">
+            <div style="font-size:16px">${e.icon}</div>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:500">${e.label}</div>
+              <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${e.date}</div>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: SIMULATION + PRONTUARIO PREVIEW -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Simulação 3D</span>
+          <span class="ai-pill">3D ATIVO</span>
+        </div>
+        <div style="margin:0 16px 16px;background:var(--s2);border-radius:10px;border:1px solid var(--border);height:180px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+          <div id="sim-canvas-detail" style="position:relative;width:120px;height:140px">
+            ${renderBodySVG(p.simType)}
+          </div>
+          <div style="position:absolute;top:8px;left:10px;font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px">MODELO 3D</div>
+          <div style="position:absolute;top:8px;right:10px;font-size:9px;background:var(--sim-dim);color:var(--sim);padding:2px 7px;border-radius:4px;font-family:var(--mono)">${p.procedure.toUpperCase()}</div>
+          ${!p.hasSimulation ? `<div style="position:absolute;inset:0;background:rgba(7,9,15,.7);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px">
+            <div style="font-size:12px;color:var(--muted)">Simulação não criada</div>
+            <button class="btn btn-sim btn-sm" onclick="App.navigate('simulator')">Criar simulação →</button>
+          </div>` : ''}
+        </div>
+        <div style="padding:0 16px 16px;display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="App.navigate('simulator')">Editar simulação</button>
+          <button class="btn btn-ghost btn-sm">Partilhar</button>
+        </div>
+      </div>
+
+      <!-- PRONTUARIO PREVIEW -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Prontuário</span>
+          ${p.hasProntuario ? '<span class="tag tag-done">Completo</span>' : '<span class="tag tag-pending">Pendente</span>'}
+        </div>
+        <div style="padding:14px 16px">
+          ${p.hasProntuario ? `
+          <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:12px">
+            <strong style="color:var(--text)">Queixa principal:</strong> Desejo de ${p.procedure.toLowerCase()} por questões estéticas e autoestima.<br>
+            <strong style="color:var(--text)">Histórico:</strong> Sem patologias relevantes. Nega uso de anticoagulantes.<br>
+            <strong style="color:var(--text)">Conduta:</strong> Procedimento aprovado. Pré-operatório solicitado.
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="App.navigate('prontuario')">Ver prontuário completo</button>
+            <button class="btn btn-pron btn-sm" onclick="App.navigate('prontuario')">Nova consulta</button>
+          </div>` : `
+          <div style="text-align:center;padding:20px 0;color:var(--muted);font-size:12px">
+            <div style="margin-bottom:10px">Nenhum prontuário ainda</div>
+            <button class="btn btn-pron btn-sm" onclick="App.navigate('prontuario')">🎙️ Iniciar consulta com IA</button>
+          </div>`}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`;
+}
+
+function renderBodySVG(type) {
+  if (type === 'breast') return `<svg viewBox="0 0 120 140" width="120" height="140" fill="none">
+    <ellipse cx="60" cy="45" rx="20" ry="25" fill="rgba(167,139,250,.1)" stroke="var(--sim)" stroke-width="1"/>
+    <ellipse cx="42" cy="100" rx="16" ry="13" fill="rgba(167,139,250,.25)" stroke="var(--sim)" stroke-width="1.5"/>
+    <ellipse cx="78" cy="100" rx="16" ry="13" fill="rgba(167,139,250,.25)" stroke="var(--sim)" stroke-width="1.5"/>
+    <path d="M44 113 Q60 122 76 113" fill="none" stroke="var(--sim)" stroke-width=".8" opacity=".5"/>
+  </svg>`;
+  if (type === 'face') return `<svg viewBox="0 0 120 140" width="120" height="140" fill="none">
+    <ellipse cx="60" cy="65" rx="30" ry="38" fill="rgba(79,156,249,.1)" stroke="var(--crm)" stroke-width="1.2"/>
+    <ellipse cx="47" cy="58" rx="6" ry="4" fill="rgba(79,156,249,.2)"/>
+    <ellipse cx="73" cy="58" rx="6" ry="4" fill="rgba(79,156,249,.2)"/>
+    <path d="M52 80 Q60 87 68 80" fill="none" stroke="var(--crm)" stroke-width="1.2"/>
+    <path d="M55 45 Q60 40 65 45" fill="none" stroke="var(--crm)" stroke-width=".8" opacity=".6"/>
+  </svg>`;
+  return `<svg viewBox="0 0 120 140" width="120" height="140" fill="none">
+    <rect x="35" y="20" width="50" height="100" rx="25" fill="rgba(52,211,153,.1)" stroke="var(--pron)" stroke-width="1.2"/>
+    <path d="M35 70 Q60 62 85 70" fill="none" stroke="var(--pron)" stroke-width="1" opacity=".6"/>
+    <ellipse cx="60" cy="35" rx="18" ry="16" fill="rgba(52,211,153,.15)" stroke="var(--pron)" stroke-width="1"/>
+  </svg>`;
+}
+
+PageInit.crm = (opts) => {
+  if (!opts.patientId) {
+    window.switchTab = function(tab) {
+      ['pipeline','list','analytics'].forEach(t => {
+        document.getElementById('tab-'+t).className = t === tab ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+      });
+    };
+    window.showAddPatient = function() {
+      alert('Modal de novo paciente — em desenvolvimento');
+    };
+  }
+};
+
+// =============================================
+// 3. SIMULATOR 3D
+// =============================================
+PageRenderers.simulator = () => `
+<div class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+    <div>
+      <div class="page-title">Simulador 3D</div>
+      <div class="page-sub">Motor de IA generativa · Mama · Rosto · Corpo</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm">Galeria de casos</button>
+      <button class="btn btn-sim btn-sm">Exportar simulação</button>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:260px 1fr 260px;gap:16px;height:calc(100vh - 200px);min-height:500px">
+
+    <!-- LEFT CONTROLS -->
+    <div style="display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+      <!-- PATIENT SELECT -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Paciente</span></div>
+        <div style="padding:12px">
+          <select class="input select" style="margin-bottom:10px" id="sim-patient-select">
+            <option value="">— Selecionar paciente —</option>
+            ${DB.patients.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+          </select>
+          <div id="sim-patient-info" style="display:none;background:var(--s2);border-radius:8px;padding:10px;font-size:11px">
+            <div style="font-weight:500" id="sim-patient-name"></div>
+            <div style="color:var(--muted)" id="sim-patient-proc"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROCEDURE TYPE -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Tipo de simulação</span></div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:6px">
+          ${[
+            ['breast','🫁','Mama','Aumento, redução, ptose'],
+            ['face','👤','Rosto','Rinoplastia, lábios, queixo'],
+            ['body','🫀','Corpo','Lipo, abdomino, gluteo'],
+          ].map(([type,icon,label,sub]) => `
+          <div id="simtype-${type}" onclick="selectSimType('${type}')" style="background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:11px;cursor:pointer;transition:all .2s">
+            <div style="display:flex;align-items:center;gap:9px">
+              <span style="font-size:16px">${icon}</span>
+              <div>
+                <div style="font-size:12px;font-weight:500">${label}</div>
+                <div style="font-size:10px;color:var(--muted)">${sub}</div>
+              </div>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- PARAMETERS -->
+      <div class="card" id="sim-params">
+        <div class="card-header"><span class="card-title">Parâmetros</span></div>
+        <div style="padding:14px" id="sim-params-body">
+          <div style="font-size:11px;color:var(--muted);text-align:center;padding:20px 0">Selecione o tipo de simulação</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: 3D CANVAS -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <!-- UPLOAD / CANVAS -->
+      <div class="card" style="flex:1;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;gap:4px">
+            ${['Anterior','Lateral D','Lateral E','Posterior'].map((v,i)=>`
+            <button id="view-btn-${i}" onclick="setView(${i})" class="btn btn-ghost btn-sm" style="font-size:10px;padding:4px 9px;${i===0?'background:var(--s3);color:var(--text)':''}">${v}</button>`).join('')}
+          </div>
+          <div style="flex:1"></div>
+          <div style="font-size:10px;color:var(--muted);font-family:var(--mono)" id="sim-mode-label">MODO UPLOAD</div>
+          <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="toggleCompare()">◑ Comparar</button>
+        </div>
+        <div style="flex:1;position:relative;background:var(--s2);border-radius:0 0 14px 14px;overflow:hidden;display:flex;align-items:center;justify-content:center" id="sim-viewport">
+          <!-- UPLOAD STATE -->
+          <div id="upload-state" style="text-align:center;padding:40px">
+            <div style="font-size:40px;margin-bottom:16px">📷</div>
+            <div style="font-size:14px;font-weight:500;margin-bottom:8px">Carregue 3 fotos para gerar o modelo 3D</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:20px">Frontal · Lateral direita · Lateral esquerda</div>
+            <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px">
+              ${['Frontal','Lateral D','Lateral E'].map((v,i) => `
+              <div id="upload-slot-${i}" onclick="simulateUpload(${i})" style="width:80px;height:100px;border:1.5px dashed var(--border);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:all .2s;font-size:10px;color:var(--muted)" onmouseover="this.style.borderColor='var(--sim)'" onmouseout="this.style.borderColor=this.dataset.filled?'var(--pron)':'var(--border)'">
+                <span style="font-size:20px">+</span>${v}
+              </div>`).join('')}
+            </div>
+            <button class="btn btn-sim" id="generate-btn" style="display:none" onclick="generateModel()">
+              ✨ Gerar Modelo 3D com IA
+            </button>
+          </div>
+          <!-- MODEL STATE (hidden initially) -->
+          <div id="model-state" style="display:none;width:100%;height:100%;position:relative">
+            <canvas id="sim-3d-canvas" style="width:100%;height:100%"></canvas>
+            <div id="sim-3d-fallback" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+              <div id="body-model-render" style="position:relative">
+                <!-- Dynamic body render -->
+              </div>
+            </div>
+            <!-- COMPARE OVERLAY (hidden) -->
+            <div id="compare-overlay" style="display:none;position:absolute;inset:0;display:flex">
+              <div style="flex:1;border-right:2px solid var(--sim);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--s2)">
+                <div style="position:absolute;top:8px;left:10px;font-size:9px;background:rgba(0,0,0,.5);color:var(--muted);padding:2px 7px;border-radius:4px;font-family:var(--mono)">ANTES</div>
+                <svg viewBox="0 0 120 180" width="120" height="180" fill="none">
+                  <rect x="35" y="20" width="50" height="140" rx="25" fill="rgba(52,211,153,.06)" stroke="var(--border)" stroke-width="1.2"/>
+                </svg>
+              </div>
+              <div style="flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--s2)">
+                <div style="position:absolute;top:8px;left:10px;font-size:9px;background:rgba(0,0,0,.5);color:var(--sim);padding:2px 7px;border-radius:4px;font-family:var(--mono)">DEPOIS</div>
+                <div id="compare-after-model"></div>
+              </div>
+            </div>
+          </div>
+          <!-- GENERATING OVERLAY -->
+          <div id="generating-overlay" style="display:none;position:absolute;inset:0;background:rgba(7,9,15,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">
+            <div id="gen-spinner" style="width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--sim);border-radius:50%"></div>
+            <div style="font-size:13px;font-weight:500">Gerando modelo 3D com IA...</div>
+            <div id="gen-progress-bar" style="width:200px;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
+              <div id="gen-bar-fill" style="height:100%;width:0%;background:var(--sim);transition:width .3s;border-radius:2px"></div>
+            </div>
+            <div id="gen-step" style="font-size:10px;color:var(--muted);font-family:var(--mono)">Analisando pontos faciais...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM CONTROLS -->
+      <div class="card">
+        <div style="padding:12px 16px;display:flex;align-items:center;gap:12px">
+          <button class="btn btn-ghost btn-sm" onclick="resetSim()">↩ Resetar</button>
+          <div style="flex:1;display:flex;gap:8px;align-items:center">
+            <span style="font-size:10px;color:var(--muted)">Zoom</span>
+            <input type="range" min="50" max="200" value="100" style="flex:1;accent-color:var(--sim)" id="zoom-slider">
+            <span id="zoom-val" style="font-size:10px;font-family:var(--mono);color:var(--muted);min-width:32px">100%</span>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="App.navigate('prontuario')">Vincular ao prontuário</button>
+          <button class="btn btn-sim btn-sm" id="save-sim-btn" onclick="saveSim()">💾 Guardar simulação</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: HISTORY + SHARE -->
+    <div style="display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Notas da simulação</span></div>
+        <div style="padding:12px">
+          <textarea class="input textarea" placeholder="Anotações para esta simulação..." style="font-size:11px;min-height:100px"></textarea>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Partilhar com paciente</span></div>
+        <div style="padding:14px;display:flex;flex-direction:column;gap:8px">
+          ${[['📱 WhatsApp','var(--pron)'],['✉️ Email','var(--crm)'],['🔗 Link seguro','var(--sim)']].map(([label,color])=>`
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start;color:${color};border-color:${color}22">${label}</button>`).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Simulações recentes</span></div>
+        <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px">
+          ${DB.patients.filter(p => p.hasSimulation).slice(0,4).map(p => `
+          <div style="display:flex;align-items:center;gap:9px;padding:7px;border-radius:7px;cursor:pointer;background:var(--s2)" onclick="loadPatientSim(${p.id})">
+            <div style="width:36px;height:36px;border-radius:7px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center">${simIcon(p.simType, 28)}</div>
+            <div style="flex:1">
+              <div style="font-size:11px;font-weight:500">${p.name}</div>
+              <div style="font-size:10px;color:var(--muted)">${p.procedure}</div>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+PageInit.simulator = () => {
+  let uploadCount = 0;
+  let currentType = null;
+  let comparing = false;
+
+  window.selectSimType = function(type) {
+    currentType = type;
+    document.querySelectorAll('[id^="simtype-"]').forEach(el => {
+      el.style.borderColor = 'var(--border)';
+      el.style.background = 'var(--s2)';
+    });
+    const el = document.getElementById('simtype-'+type);
+    if (el) { el.style.borderColor = 'var(--sim)'; el.style.background = 'rgba(167,139,250,.08)'; }
+
+    const params = document.getElementById('sim-params-body');
+    if (!params) return;
+    const paramSets = {
+      breast: [['Volume implante','200cc','800cc','400cc'],['Projeção','0','100','60'],['Posição','0','100','50']],
+      face: [['Dorso nasal','0','100','40'],['Ponta nasal','0','100','55'],['Volume lábios','0','100','30']],
+      body: [['Áreas de lipo','0','100','50'],['Definição abdominal','0','100','35'],['Contorno cintura','0','100','60']],
+    };
+    const set = paramSets[type] || [];
+    params.innerHTML = set.map(([label, min, max, val]) => `
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+          <span style="font-size:11px;color:var(--muted)">${label}</span>
+          <span style="font-size:10px;font-family:var(--mono);color:var(--sim)" id="param-val-${label.replace(/\s/g,'')}">${val}</span>
+        </div>
+        <input type="range" min="${min}" max="${max}" value="${val}" style="width:100%;accent-color:var(--sim)"
+          oninput="document.getElementById('param-val-${label.replace(/\s/g,'')}').textContent=this.value;updateModel()">
+      </div>`).join('');
+  };
+
+  window.simulateUpload = function(i) {
+    const slot = document.getElementById('upload-slot-'+i);
+    if (!slot) return;
+    slot.style.background = 'var(--pron-dim)';
+    slot.style.borderColor = 'var(--pron)';
+    slot.dataset.filled = '1';
+    slot.innerHTML = '<span style="font-size:20px">✓</span><span style="font-size:10px;color:var(--pron)">Foto '+['F','D','E'][i]+'</span>';
+    uploadCount++;
+    if (uploadCount >= 2) {
+      const btn = document.getElementById('generate-btn');
+      if (btn) btn.style.display = 'inline-flex';
+    }
+  };
+
+  window.generateModel = function() {
+    const genOverlay = document.getElementById('generating-overlay');
+    if (genOverlay) { genOverlay.style.display = 'flex'; }
+    const steps = ['Detectando pontos anatômicos...','Construindo malha 3D...','Aplicando textura...','Calibrando proporções...','Modelo pronto!'];
+    let step = 0, progress = 0;
+    const interval = setInterval(() => {
+      progress += 20;
+      const fill = document.getElementById('gen-bar-fill');
+      const stepEl = document.getElementById('gen-step');
+      const spinner = document.getElementById('gen-spinner');
+      if (fill) fill.style.width = progress + '%';
+      if (stepEl && steps[step]) stepEl.textContent = steps[step++];
+      if (progress >= 100) {
+        clearInterval(interval);
+        if (spinner) spinner.style.borderTopColor = 'var(--pron)';
+        setTimeout(() => {
+          if (genOverlay) genOverlay.style.display = 'none';
+          document.getElementById('upload-state').style.display = 'none';
+          document.getElementById('model-state').style.display = 'block';
+          document.getElementById('sim-mode-label').textContent = 'MODELO 3D · INTERATIVO';
+          renderBodyModel('breast');
+        }, 600);
+      }
+    }, 600);
+  };
+
+  window.renderBodyModel = function(type) {
+    const el = document.getElementById('body-model-render');
+    if (!el) return;
+    el.innerHTML = `<div style="text-align:center">
+      <svg viewBox="0 0 200 300" width="200" height="300" fill="none">
+        <ellipse cx="100" cy="50" rx="30" ry="35" fill="rgba(167,139,250,.1)" stroke="var(--sim)" stroke-width="1"/>
+        <rect x="72" y="82" width="56" height="120" rx="10" fill="rgba(167,139,250,.06)" stroke="var(--sim)" stroke-width="1"/>
+        <ellipse cx="75" cy="130" rx="20" ry="15" fill="rgba(167,139,250,.2)" stroke="var(--sim)" stroke-width="1.5"/>
+        <ellipse cx="125" cy="130" rx="20" ry="15" fill="rgba(167,139,250,.2)" stroke="var(--sim)" stroke-width="1.5"/>
+        <line x1="50" y1="95" x2="25" y2="175" stroke="var(--sim)" stroke-width="1" opacity=".4"/>
+        <line x1="150" y1="95" x2="175" y2="175" stroke="var(--sim)" stroke-width="1" opacity=".4"/>
+        <line x1="75" y1="202" x2="65" y2="290" stroke="var(--sim)" stroke-width="1" opacity=".4"/>
+        <line x1="125" y1="202" x2="135" y2="290" stroke="var(--sim)" stroke-width="1" opacity=".4"/>
+        ${[0,30,60,90,120,150,180].map(a => {
+          const r = (a * Math.PI) / 180;
+          const x1 = 100 + 22*Math.cos(r), y1 = 130 + 16*Math.sin(r);
+          const x2 = 100 + 30*Math.cos(r), y2 = 130 + 22*Math.sin(r);
+          return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(167,139,250,.3)" stroke-width=".8"/>`;
+        }).join('')}
+      </svg>
+      <div style="font-size:9px;color:var(--sim);font-family:var(--mono);margin-top:4px;opacity:.7">MODELO 3D · ARRASTE PARA RODAR</div>
+    </div>`;
+    document.getElementById('compare-after-model').innerHTML = el.innerHTML;
+  };
+
+  window.updateModel = function() { /* param changes would update 3D */ };
+  window.resetSim = function() {
+    document.getElementById('upload-state').style.display = 'block';
+    document.getElementById('model-state').style.display = 'none';
+    uploadCount = 0;
+    [0,1,2].forEach(i => {
+      const slot = document.getElementById('upload-slot-'+i);
+      if (slot) { slot.innerHTML = '<span style="font-size:20px">+</span><span style="font-size:10px">'+['Frontal','Lateral D','Lateral E'][i]+'</span>'; slot.style.background=''; slot.style.borderColor='var(--border)'; delete slot.dataset.filled; }
+    });
+    const btn = document.getElementById('generate-btn');
+    if (btn) btn.style.display = 'none';
+  };
+
+  window.toggleCompare = function() {
+    comparing = !comparing;
+    const ov = document.getElementById('compare-overlay');
+    if (ov) ov.style.display = comparing ? 'flex' : 'none';
+  };
+
+  window.setView = function(i) {
+    document.querySelectorAll('[id^="view-btn-"]').forEach(el => { el.style.background=''; el.style.color='var(--muted)'; });
+    const btn = document.getElementById('view-btn-'+i);
+    if (btn) { btn.style.background='var(--s3)'; btn.style.color='var(--text)'; }
+  };
+
+  window.saveSim = function() {
+    const btn = document.getElementById('save-sim-btn');
+    if (!btn) return;
+    btn.textContent = '✓ Guardado!';
+    btn.style.background = 'var(--pron)';
+    setTimeout(() => { btn.textContent = '💾 Guardar simulação'; btn.style.background = ''; }, 2000);
+  };
+
+  window.loadPatientSim = function(id) {
+    const p = DB.patients.find(x => x.id === id);
+    if (!p) return;
+    selectSimType(p.simType);
+    document.getElementById('upload-state').style.display = 'none';
+    document.getElementById('model-state').style.display = 'block';
+    renderBodyModel(p.simType);
+  };
+
+  const zoom = document.getElementById('zoom-slider');
+  if (zoom) zoom.oninput = function() { document.getElementById('zoom-val').textContent = this.value + '%'; };
+
+  const sel = document.getElementById('sim-patient-select');
+  if (sel) sel.onchange = function() {
+    const p = DB.patients.find(x => x.id == this.value);
+    const info = document.getElementById('sim-patient-info');
+    if (info && p) {
+      info.style.display = 'block';
+      document.getElementById('sim-patient-name').textContent = p.name;
+      document.getElementById('sim-patient-proc').textContent = p.procedure;
+      selectSimType(p.simType);
+    }
+  };
+};
+
+// =============================================
+// 4. PRONTUÁRIO COM IA DE VOZ
+// =============================================
+PageRenderers.prontuario = () => `
+<div class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+    <div>
+      <div class="page-title">Prontuário com IA de Voz</div>
+      <div class="page-sub">Transcrição em tempo real · Documentação automática · Charcot IA</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <select class="input select btn-sm" style="padding:7px 12px;font-size:11px;width:200px">
+        <option>— Selecionar paciente —</option>
+        ${DB.patients.map(p=>`<option>${p.name}</option>`).join('')}
+      </select>
+      <button class="btn btn-ghost btn-sm">Ver histórico</button>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:16px">
+    <!-- MAIN PANEL -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <!-- RECORDING CONTROL -->
+      <div class="card" style="border-color:rgba(52,211,153,.2)">
+        <div style="padding:16px 20px;display:flex;align-items:center;gap:16px">
+          <button id="rec-btn" onclick="toggleRecording()" style="width:54px;height:54px;border-radius:50%;background:var(--pron-dim);border:2px solid var(--pron);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .3s;flex-shrink:0">
+            <svg id="rec-icon" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--pron)" stroke-width="2"><path d="M11 2a4 4 0 014 4v5a4 4 0 01-8 0V6a4 4 0 014-4z"/><path d="M5 12a6 6 0 0012 0M11 18v3M8 21h6"/></svg>
+          </button>
+          <div style="flex:1">
+            <div id="rec-status" style="font-size:14px;font-weight:600">Pronto para gravar</div>
+            <div id="rec-sub" style="font-size:11px;color:var(--muted)">Pressione o microfone para iniciar a consulta</div>
+          </div>
+          <div id="rec-timer" style="font-family:var(--mono);font-size:22px;font-weight:300;color:var(--muted);min-width:70px;text-align:right">00:00</div>
+          <div id="waveform" style="display:flex;align-items:center;gap:2px;height:30px;min-width:80px">
+            ${Array.from({length:14},(_,i)=>`<div class="wave-bar" style="width:4px;height:${6+Math.random()*20}px;background:var(--border);border-radius:2px;transition:height .15s"></div>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- TABS: TRANSCRICAO / ANAMNESE / DOCUMENTOS -->
+      <div style="display:flex;gap:6px">
+        ${[['trans','🎙️ Transcrição'],['anam','📋 Anamnese'],['docs','📄 Documentos'],['charcot','🧠 Charcot IA']].map(([id,label],i)=>`
+        <button id="ptab-${id}" onclick="setPTab('${id}')" class="btn btn-sm ${i===0?'btn-pron':'btn-ghost'}">${label}</button>`).join('')}
+      </div>
+
+      <!-- TRANSCRICAO TAB -->
+      <div id="ptab-content-trans" class="card" style="flex:1">
+        <div class="card-header">
+          <span class="card-title">Transcrição em tempo real</span>
+          <span id="trans-badge" class="tag" style="background:var(--border);color:var(--muted)">Aguardando...</span>
+          <button class="btn btn-ghost btn-sm" onclick="copyTranscript()">Copiar</button>
+        </div>
+        <div id="transcript-body" style="padding:18px 20px;min-height:300px;font-size:12px;line-height:1.8;color:var(--muted)">
+          <div id="transcript-placeholder" style="text-align:center;padding:60px 0">
+            <div style="font-size:32px;margin-bottom:12px">🎙️</div>
+            <div style="font-size:13px;color:var(--muted)">Inicie a gravação para ver a transcrição aparecer aqui em tempo real</div>
+          </div>
+          <div id="transcript-text" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- ANAMNESE TAB (hidden) -->
+      <div id="ptab-content-anam" class="card" style="display:none">
+        <div class="card-header">
+          <span class="card-title">Anamnese gerada por IA</span>
+          <span class="ai-pill">IA GERADO</span>
+          <button class="btn btn-ghost btn-sm">Editar</button>
+          <button class="btn btn-pron btn-sm">Guardar</button>
+        </div>
+        <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          ${[
+            ['Queixa principal','Desejo de aumento mamário bilateral por questões estéticas e melhora da autoestima. Relata insatisfação com o volume atual desde a amamentação.'],
+            ['HDA','Paciente sem cirurgias prévias. Nega uso de anticoagulantes, corticoides ou medicamentos de uso contínuo. Não fuma. Consome álcool socialmente.'],
+            ['Antecedentes','Sem patologias relevantes. Nega hipertensão, diabetes ou cardiopatias. HPV negativo. Última mamografia: 2024 (normal).'],
+            ['Exame físico','Mamas com ptose grau I. Simetria preservada. Sem nódulos palpáveis. Mamilos centralizados. IMC: 22.4. ASA I.'],
+          ].map(([title,content]) => `
+          <div style="background:var(--s2);border-radius:10px;padding:14px">
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${title}</div>
+            <div style="font-size:12px;line-height:1.7">${content}</div>
+          </div>`).join('')}
+          <div style="grid-column:1/3;background:var(--pron-dim);border:1px solid rgba(52,211,153,.2);border-radius:10px;padding:14px">
+            <div style="font-size:10px;color:var(--pron);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Plano terapêutico</div>
+            <div style="font-size:12px;line-height:1.7">Indicado aumento mamário com prótese de silicone. Volume sugerido 300-350cc, projeção moderada. Acesso periareolar. Anestesia geral. Solicitados exames pré-operatórios de rotina. Retorno em 30 dias.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DOCUMENTOS TAB (hidden) -->
+      <div id="ptab-content-docs" class="card" style="display:none">
+        <div class="card-header"><span class="card-title">Documentos clínicos</span><button class="btn btn-pron btn-sm">+ Gerar novo</button></div>
+        <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          ${[
+            ['📋','Prontuário completo','Gerado por IA','done'],
+            ['💊','Receita médica','Gerado por IA','done'],
+            ['📄','Atestado médico','Clique para gerar','pending'],
+            ['🔬','Solicitação de exames','Gerado por IA','done'],
+            ['✍️','Termo de consentimento','Gerado por IA','done'],
+            ['📊','Laudo pré-operatório','Clique para gerar','pending'],
+          ].map(([icon,name,sub,status]) => `
+          <div style="background:var(--s2);border:1px solid ${status==='done'?'var(--border)':'rgba(245,158,11,.2)'};border-radius:10px;padding:13px;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor='var(--pron)'" onmouseout="this.style.borderColor='${status==='done'?'var(--border)':'rgba(245,158,11,.2)'}'">
+            <div style="font-size:20px;margin-bottom:8px">${icon}</div>
+            <div style="font-size:12px;font-weight:500;margin-bottom:2px">${name}</div>
+            <div style="font-size:10px;color:${status==='done'?'var(--muted)':'var(--ia)'}">
+              ${status==='done'?'<span style="color:var(--pron)">✓</span> '+sub:sub}
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- CHARCOT IA TAB (hidden) -->
+      <div id="ptab-content-charcot" class="card" style="display:none">
+        <div class="card-header">
+          <span class="card-title">Charcot IA · Assistente clínico</span>
+          <span class="ai-pill">GPT-4 MÉDICO</span>
+        </div>
+        <div id="charcot-messages" style="padding:16px 20px;min-height:260px;display:flex;flex-direction:column;gap:10px">
+          <div style="background:var(--s2);border-radius:10px;padding:12px;border-left:3px solid var(--sim)">
+            <div style="font-size:10px;color:var(--sim);margin-bottom:5px;font-family:var(--mono)">CHARCOT IA</div>
+            <div style="font-size:12px;line-height:1.7">Olá, Dr. Varela! Estou aqui para auxiliar com informações clínicas, condutas e literatura científica. Tenho contexto da consulta atual. O que gostaria de saber?</div>
+          </div>
+          ${[
+            ['Quais as contraindicações para prótese de silicone em paciente com ptose grau I?', 'Em pacientes com ptose grau I, a colocação de próteses mamárias isoladamente pode não oferecer o resultado esperado. A literatura recomenda avaliar mastoplexy simultânea. Contraindicações incluem: doenças autoimunes ativas, tabagismo não controlado (≥10 cigarros/dia), e IMC >35.'],
+          ].map(([q,a]) => `
+          <div style="background:var(--crm-dim);border-radius:10px;padding:10px 12px;align-self:flex-end;max-width:85%">
+            <div style="font-size:11px;line-height:1.6">${q}</div>
+          </div>
+          <div style="background:var(--s2);border-radius:10px;padding:12px;border-left:3px solid var(--sim);max-width:90%">
+            <div style="font-size:10px;color:var(--sim);margin-bottom:5px;font-family:var(--mono)">CHARCOT IA</div>
+            <div style="font-size:12px;line-height:1.7">${a}</div>
+          </div>`).join('')}
+        </div>
+        <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px">
+          <input class="input" id="charcot-input" placeholder="Faça uma pergunta clínica..." style="flex:1;font-size:12px" onkeydown="if(event.key==='Enter')sendCharcot()">
+          <button class="btn btn-sim btn-sm" onclick="sendCharcot()">Perguntar →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: PATIENT INFO DURING CONSULT -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Paciente em consulta</span></div>
+        <div style="padding:14px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <div class="avatar av-blue" style="width:44px;height:44px;font-size:14px">AS</div>
+            <div>
+              <div style="font-weight:600">Ana Sofia Mendes</div>
+              <div style="font-size:11px;color:var(--muted)">34 anos · Aumento mamário</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${[['Última consulta','28 Fev 2026'],['Procedimento','Aumento mamário'],['Lead origin','Instagram'],['Simulação','Aprovada ✓'],['Status','Pré-operatório']].map(([k,v])=>`
+            <div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-bottom:1px solid var(--border)">
+              <span style="color:var(--muted)">${k}</span>
+              <span style="font-weight:500">${v}</span>
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Sugestões rápidas</span><span class="ai-pill">IA</span></div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:6px">
+          ${['Gerar receita de analgésico','Solicitar hemograma completo','Criar termo de consentimento','Agendar retorno em 30 dias'].map(s=>`
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start;font-size:11px;color:var(--text2)">${s}</button>`).join('')}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Sinais vitais</span></div>
+        <div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${[['PA','120/80'],['FC','72 bpm'],['Peso','62 kg'],['Altura','1.65 m'],['IMC','22.4'],['Temp','36.5°C']].map(([k,v])=>`
+          <div style="background:var(--s2);border-radius:7px;padding:9px;text-align:center">
+            <div style="font-size:9px;color:var(--muted);margin-bottom:3px">${k}</div>
+            <div style="font-size:13px;font-weight:500;font-family:var(--mono)">${v}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+PageInit.prontuario = () => {
+  let recording = false;
+  let timer = 0;
+  let timerInterval = null;
+  let waveInterval = null;
+  const transcriptLines = [
+    'Dr. Varela: Bom dia, Ana Sofia. Como você está se sentindo hoje?',
+    'Paciente: Bom dia, doutor. Estou bem, ansiosa para a consulta.',
+    'Dr. Varela: Claro. Vamos revisar a simulação que fizemos. A senhora está satisfeita com os resultados projetados?',
+    'Paciente: Sim, adorei! O volume de 330cc ficou exatamente como eu imaginava. Muito natural.',
+    'Dr. Varela: Ótimo. Vou solicitar os exames pré-operatórios hoje. A senhora toma algum medicamento regularmente?',
+    'Paciente: Não, nenhum. Ah, e parei de tomar anticoncepcional há 3 meses como o senhor recomendou.',
+    'Dr. Varela: Perfeito. A cirurgia está agendada para o dia 28 de março. Qualquer dúvida, pode nos contatar.',
+  ];
+  let lineIdx = 0;
+
+  window.toggleRecording = function() {
+    recording = !recording;
+    const btn = document.getElementById('rec-btn');
+    const icon = document.getElementById('rec-icon');
+    const status = document.getElementById('rec-status');
+    const sub = document.getElementById('rec-sub');
+    const badge = document.getElementById('trans-badge');
+
+    if (recording) {
+      btn.style.background = 'rgba(248,113,113,.15)';
+      btn.style.borderColor = 'var(--danger)';
+      icon.style.stroke = 'var(--danger)';
+      btn.classList.add('recording-pulse');
+      status.textContent = '● Gravando consulta...';
+      status.style.color = 'var(--danger)';
+      sub.textContent = 'IA processando em tempo real · Clique para pausar';
+      badge.textContent = '● AO VIVO';
+      badge.style.background = 'rgba(248,113,113,.15)';
+      badge.style.color = 'var(--danger)';
+
+      timerInterval = setInterval(() => {
+        timer++;
+        const m = String(Math.floor(timer/60)).padStart(2,'0');
+        const s = String(timer%60).padStart(2,'0');
+        document.getElementById('rec-timer').textContent = m+':'+s;
+      }, 1000);
+
+      waveInterval = setInterval(() => {
+        document.querySelectorAll('.wave-bar').forEach(b => {
+          b.style.height = (6 + Math.random() * 24) + 'px';
+          b.style.background = recording ? 'var(--danger)' : 'var(--border)';
+        });
+      }, 120);
+
+      document.getElementById('transcript-placeholder').style.display = 'none';
+      document.getElementById('transcript-text').style.display = 'block';
+
+      const addLine = () => {
+        if (lineIdx >= transcriptLines.length) return;
+        const line = transcriptLines[lineIdx++];
+        const isDoc = line.startsWith('Dr.');
+        const div = document.createElement('div');
+        div.style.cssText = `padding:6px 0;border-bottom:1px solid var(--border);animation:fadeIn .3s ease`;
+        div.innerHTML = `<span style="color:${isDoc?'var(--crm)':'var(--text2)'};font-weight:${isDoc?'500':'400'}">${line}</span>`;
+        document.getElementById('transcript-text').appendChild(div);
+        if (lineIdx < transcriptLines.length) setTimeout(addLine, 2500 + Math.random()*1500);
+      };
+      setTimeout(addLine, 1200);
+
+    } else {
+      clearInterval(timerInterval);
+      clearInterval(waveInterval);
+      btn.style.background = 'var(--pron-dim)';
+      btn.style.borderColor = 'var(--pron)';
+      icon.style.stroke = 'var(--pron)';
+      btn.classList.remove('recording-pulse');
+      status.textContent = 'Consulta pausada';
+      status.style.color = '';
+      sub.textContent = 'Pressione novamente para continuar';
+      badge.textContent = 'Pausado';
+      badge.style.background = 'var(--ia-dim)';
+      badge.style.color = 'var(--ia)';
+      document.querySelectorAll('.wave-bar').forEach(b => { b.style.height = '6px'; b.style.background = 'var(--border)'; });
+    }
+  };
+
+  window.setPTab = function(tab) {
+    ['trans','anam','docs','charcot'].forEach(t => {
+      const btn = document.getElementById('ptab-'+t);
+      const content = document.getElementById('ptab-content-'+t);
+      if (btn) btn.className = t===tab ? 'btn btn-pron btn-sm' : 'btn btn-ghost btn-sm';
+      if (content) content.style.display = t===tab ? 'block' : 'none';
+    });
+  };
+
+  window.copyTranscript = function() { alert('Transcrição copiada!'); };
+
+  window.sendCharcot = function() {
+    const input = document.getElementById('charcot-input');
+    if (!input || !input.value.trim()) return;
+    const q = input.value;
+    input.value = '';
+    const msgs = document.getElementById('charcot-messages');
+    const qDiv = document.createElement('div');
+    qDiv.style.cssText = 'background:var(--crm-dim);border-radius:10px;padding:10px 12px;align-self:flex-end;max-width:85%;animation:fadeIn .3s';
+    qDiv.innerHTML = `<div style="font-size:11px;line-height:1.6">${q}</div>`;
+    msgs.appendChild(qDiv);
+    const thinking = document.createElement('div');
+    thinking.style.cssText = 'background:var(--s2);border-radius:10px;padding:12px;border-left:3px solid var(--sim);font-size:12px;color:var(--muted)';
+    thinking.textContent = 'Charcot IA está a pensar...';
+    msgs.appendChild(thinking);
+    msgs.scrollTop = msgs.scrollHeight;
+    setTimeout(() => {
+      thinking.innerHTML = `<div style="font-size:10px;color:var(--sim);margin-bottom:5px;font-family:var(--mono)">CHARCOT IA</div><div style="font-size:12px;line-height:1.7">Com base na literatura atual, recomendo considerar o protocolo de anestesia tumescente para maior conforto pós-operatório. Estudos publicados no Plastic & Reconstructive Surgery (2024) demonstram redução de 40% no edema com essa abordagem.</div>`;
+      msgs.scrollTop = msgs.scrollHeight;
+    }, 1800);
+  };
+};
+
+// =============================================
+// 5. AGENDA
+// =============================================
+PageRenderers.agenda = () => {
+  const hours = Array.from({length:11}, (_,i) => `${8+i}:00`);
+  return `
+<div class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+    <div>
+      <div class="page-title">Agenda</div>
+      <div class="page-sub">Semana de 14 a 20 de Março de 2026</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm">← Semana anterior</button>
+      <button class="btn btn-ghost btn-sm" style="background:var(--crm-dim);color:var(--crm);border-color:var(--crm)">Hoje</button>
+      <button class="btn btn-ghost btn-sm">Semana seguinte →</button>
+      <button class="btn btn-primary btn-sm">+ Novo agendamento</button>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:60px repeat(6,1fr);gap:0;background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden">
+    <!-- HEADER -->
+    <div style="background:var(--s2);border-bottom:1px solid var(--border);padding:10px"></div>
+    ${['Seg 16','Ter 17','Qua 18','Qui 19','Sex 20','Sáb 21'].map((d,i)=>`
+    <div style="background:var(--s2);border-bottom:1px solid var(--border);border-left:1px solid var(--border);padding:10px;text-align:center">
+      <div style="font-size:11px;font-weight:600;${i===0?'color:var(--crm)':''}">${d.split(' ')[0]}</div>
+      <div style="font-size:18px;font-weight:300;font-family:var(--mono);${i===0?'color:var(--crm)':''}">${d.split(' ')[1]}</div>
+    </div>`).join('')}
+
+    <!-- TIME SLOTS -->
+    ${hours.map((h,hi) => `
+    <div style="border-bottom:1px solid rgba(30,35,56,.5);padding:8px 6px;font-size:10px;color:var(--muted);font-family:var(--mono);background:var(--s2);text-align:right">${h}</div>
+    ${[0,1,2,3,4,5].map(di => {
+      const events = [];
+      if (di===0 && hi===1) events.push({label:'Ana Sofia M.',sub:'Pré-op mamário',color:'var(--crm)'});
+      if (di===0 && hi===2) events.push({label:'Beatriz F.',sub:'Simulação 3D',color:'var(--sim)'});
+      if (di===0 && hi===6) events.push({label:'Carla R.',sub:'Consulta lipo',color:'var(--pron)'});
+      if (di===1 && hi===3) events.push({label:'Maria O.',sub:'Revisão pós-op',color:'var(--ia)'});
+      if (di===2 && hi===1) events.push({label:'Fernanda C.',sub:'Pré-op mamoplastia',color:'var(--crm)'});
+      if (di===3 && hi===4) events.push({label:'Juliana P.',sub:'Consulta lifting',color:'var(--sim)'});
+      if (di===4 && hi===2) events.push({label:'Nova paciente',sub:'Avaliação inicial',color:'var(--muted)'});
+      if (di===5 && hi===1) events.push({label:'Revisão prontuários',sub:'Interno',color:'var(--faint)'});
+      return `<div style="border-bottom:1px solid rgba(30,35,56,.5);border-left:1px solid rgba(30,35,56,.5);padding:4px;min-height:44px;${events.length?'cursor:pointer':''}">
+        ${events.map(e=>`<div style="background:${e.color}22;border-left:2px solid ${e.color};padding:4px 6px;border-radius:0 4px 4px 0;font-size:10px;line-height:1.3">
+          <div style="font-weight:500;color:${e.color}">${e.label}</div>
+          <div style="color:var(--muted)">${e.sub}</div>
+        </div>`).join('')}
+      </div>`;
+    }).join('')}`).join('')}
+  </div>
+</div>`;
+};
+
+// =============================================
+// 6. FINANCEIRO
+// =============================================
+PageRenderers.financeiro = () => `
+<div class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+    <div><div class="page-title">Financeiro</div><div class="page-sub">Receita, despesas e pipeline financeiro</div></div>
+    <div style="display:flex;gap:8px">
+      <select class="input select btn-sm" style="width:140px;padding:7px;font-size:11px"><option>Março 2026</option><option>Fevereiro 2026</option></select>
+      <button class="btn btn-ghost btn-sm">Exportar PDF</button>
+    </div>
+  </div>
+  <div class="grid-4" style="margin-bottom:22px">
+    ${[['Receita Março','R$ 187.500','var(--pron)','↑ 22%'],['Procedimentos','24','var(--crm)','↑ 4 vs Fev'],['Ticket médio','R$ 7.812','var(--sim)','↑ 8%'],['A receber','R$ 94.000','var(--ia)','12 pacientes']].map(([label,val,color,delta])=>`
+    <div class="metric-card" style="border-color:${color}22">
+      <div class="metric-label">${label}</div>
+      <div style="font-size:${val.includes('R$')?'18px':'28px'};font-weight:300;font-family:var(--mono);margin-bottom:6px;color:${color}">${val}</div>
+      <div style="font-size:11px;color:var(--pron)">${delta}</div>
+    </div>`).join('')}
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Receita por procedimento</span></div>
+      <div style="padding:16px 20px">
+        ${[['Aumento mamário','R$ 74.000',74],['Rinoplastia','R$ 42.000',42],['Abdominoplastia','R$ 22.000',22],['Lipoaspiração','R$ 36.000',36],['Outros','R$ 13.500',13]].map(([proc,val,pct])=>`
+        <div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span>${proc}</span><span style="font-weight:500;font-family:var(--mono)">${val}</span>
+          </div>
+          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:var(--crm);border-radius:2px;opacity:.8"></div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Últimas transações</span></div>
+      <table>
+        <thead><tr><th>Paciente</th><th>Procedimento</th><th>Valor</th><th>Status</th></tr></thead>
+        <tbody>
+          ${DB.patients.slice(0,5).map(p=>`
+          <tr><td><div style="font-size:12px;font-weight:500">${p.name}</div></td>
+          <td style="font-size:11px;color:var(--muted)">${p.procedure}</td>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--pron)">${formatCurrency(p.value)}</td>
+          <td>${statusTag(p.status==='done'?'done':'scheduled')}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>`;
+
+// =============================================
+// 7. GALERIA
+// =============================================
+PageRenderers.galeria = () => `
+<div class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+    <div><div class="page-title">Galeria de Casos</div><div class="page-sub">Portfólio público · Antes e depois</div></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost btn-sm">Filtrar</button>
+      <button class="btn btn-sim btn-sm">+ Adicionar caso</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:20px">
+    ${['Todos','Mama','Rosto','Corpo'].map((f,i)=>`
+    <button class="btn btn-sm ${i===0?'btn-sim':'btn-ghost'}">${f}</button>`).join('')}
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+    ${DB.patients.filter(p=>p.hasSimulation).map(p=>`
+    <div class="card" style="overflow:hidden;cursor:pointer" onmouseover="this.style.borderColor='var(--sim)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="display:grid;grid-template-columns:1fr 1fr;height:160px">
+        <div style="background:var(--s2);display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid var(--border);position:relative">
+          <div style="position:absolute;top:7px;left:8px;font-size:9px;color:var(--muted);font-family:var(--mono);background:rgba(0,0,0,.4);padding:2px 6px;border-radius:3px">ANTES</div>
+          <div style="opacity:.4">${renderBodySVG(p.simType)}</div>
+        </div>
+        <div style="background:var(--s2);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative">
+          <div style="position:absolute;top:7px;right:8px;font-size:9px;color:var(--sim);font-family:var(--mono);background:rgba(0,0,0,.4);padding:2px 6px;border-radius:3px">DEPOIS</div>
+          ${renderBodySVG(p.simType)}
+        </div>
+      </div>
+      <div style="padding:12px 14px;border-top:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:12px;font-weight:500">${p.procedure}</div>
+            <div style="font-size:10px;color:var(--muted)">${p.age} anos · ${p.initials}</div>
+          </div>
+          <span class="tag tag-done">Publicado</span>
+        </div>
+      </div>
+    </div>`).join('')}
+  </div>
+</div>`;
+
+// =============================================
+// 8. CONFIGURAÇÕES
+// =============================================
+PageRenderers.configuracoes = () => `
+<div class="page">
+  <div class="page-header"><div class="page-title">Definições</div><div class="page-sub">Perfil, clínica e integrações</div></div>
+  <div class="grid-2">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Perfil do cirurgião</span><button class="btn btn-ghost btn-sm">Editar</button></div>
+        <div style="padding:16px 20px">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+            <div class="avatar av-blue" style="width:56px;height:56px;font-size:18px">RV</div>
+            <div>
+              <div style="font-size:15px;font-weight:600">${DB.surgeon.name}</div>
+              <div style="font-size:11px;color:var(--muted)">${DB.surgeon.spec}</div>
+              <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${DB.surgeon.crm}</div>
+            </div>
+          </div>
+          ${[['Clínica',DB.surgeon.clinic],['WhatsApp','+55 11 99999-0000'],['Email','dr.varela@clinica.com'],['Site','clinicavarela.com.br']].map(([k,v])=>`
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:1px solid var(--border)">
+            <span style="color:var(--muted)">${k}</span><span>${v}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Plano ativo</span></div>
+        <div style="padding:16px 20px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <span style="font-size:16px;font-weight:700;color:var(--sim)">Pro</span>
+            <span class="ai-pill">ATIVO</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:14px">R$ 1.197/mês · Renova em 01 Abr 2026</div>
+          ${['CRM ilimitado','Simulações 3D ilimitadas','Prontuário IA ilimitado','Chatbot multi-canal','Galeria pública'].map(f=>`
+          <div style="font-size:11px;padding:4px 0;color:var(--text2)"><span style="color:var(--pron);margin-right:6px">✓</span>${f}</div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Integrações</span></div>
+        <div style="padding:14px">
+          ${[
+            ['💬','WhatsApp Business','Conectado','var(--pron)'],
+            ['📸','Instagram','Conectado','var(--pron)'],
+            ['📧','Gmail','Conectado','var(--pron)'],
+            ['🗓️','Google Calendar','Não conectado','var(--muted)'],
+            ['💊','Memed (prescrições)','Conectado','var(--pron)'],
+            ['🔬','Resultados Lab','Não conectado','var(--muted)'],
+          ].map(([icon,name,status,color])=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:16px">${icon}</span>
+            <span style="flex:1;font-size:12px">${name}</span>
+            <span style="font-size:11px;font-weight:500;color:${color}">${status}</span>
+            <button class="btn btn-ghost btn-sm" style="font-size:10px">${status==='Conectado'?'Desligar':'Conectar'}</button>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">IA & Automações</span></div>
+        <div style="padding:14px">
+          ${[
+            ['Chatbot WhatsApp 24/7',true],
+            ['Follow-up automático pós-consulta',true],
+            ['Qualificação automática de leads',true],
+            ['NPS automático pós-op',true],
+            ['Sugestões Charcot IA durante consulta',false],
+          ].map(([label,on])=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="flex:1;font-size:12px">${label}</span>
+            <div onclick="this.dataset.on=this.dataset.on==='1'?'0':'1';this.style.background=this.dataset.on==='1'?'var(--pron)':'var(--border)'" data-on="${on?'1':'0'}" style="width:36px;height:20px;border-radius:10px;background:${on?'var(--pron)':'var(--border)'};cursor:pointer;transition:background .2s;position:relative">
+              <div style="position:absolute;top:2px;${on?'right:2px':'left:2px'};width:16px;height:16px;border-radius:50%;background:white;transition:all .2s"></div>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>`;
+  window.addEventListener('DOMContentLoaded', () => { initAuth(); });
+  window.toggleQuickMenu = function() {
+    const m = document.getElementById('quick-menu');
+    m.style.display = m.style.display === 'none' ? 'block' : 'none';
+  };
+  document.addEventListener('click', function(e) {
+    const wrap = document.getElementById('quick-menu-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+      const m = document.getElementById('quick-menu');
+      if (m) m.style.display = 'none';
+    }
+  });
+</script>
+</body>
+</html>
