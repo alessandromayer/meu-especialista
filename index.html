@@ -143,26 +143,20 @@
       <div class="topbar-date">Sáb, 14 Mar 2026 · 09:41</div>
 
       <!-- QUICK NEW BUTTON -->
-      <div style="position:relative" id="quick-menu-wrap">
-        <button class="btn btn-ghost btn-sm" onclick="toggleQuickMenu()">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6.5 1v11M1 6.5h11"/></svg>
-          Novo
-        </button>
-        <div id="quick-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:6px;min-width:200px;z-index:100">
-          <div onclick="toggleQuickMenu();App.navigate('crm')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
-            <span>👤</span>Novo paciente
-          </div>
-          <div onclick="toggleQuickMenu();App.navigate('simulator')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
-            <span>🫁</span>Nova simulação 3D
-          </div>
-          <div onclick="toggleQuickMenu();App.navigate('prontuario')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
-            <span>🎙️</span>Iniciar consulta IA
-          </div>
-          <div onclick="toggleQuickMenu();App.navigate('agenda')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
-            <span>📅</span>Novo agendamento
-          </div>
-        </div>
-      </div>
+      <div id="quick-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:6px;min-width:200px;z-index:100">
+  <div onclick="toggleQuickMenu();App.navigate('crm')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
+    <span>👤</span>Novo paciente
+  </div>
+  <div onclick="toggleQuickMenu();App.navigate('simulator')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
+    <span>🫁</span>Nova simulação 3D
+  </div>
+  <div onclick="toggleQuickMenu();App.navigate('prontuario')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
+    <span>🎙️</span>Iniciar consulta IA
+  </div>
+  <div onclick="toggleQuickMenu();App.navigate('agenda')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
+    <span>📅</span>Novo agendamento
+  </div>
+</div>
 
       <!-- NOTIFICATIONS -->
       <button class="btn btn-ghost btn-sm" style="position:relative" onclick="App.navigate('crm')">
