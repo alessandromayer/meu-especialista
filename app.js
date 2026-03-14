@@ -1,7 +1,24 @@
 // =============================================
 // MEU ESPECIALISTA — Shared App State & Router
 // =============================================
+const supabaseUrl = "https://acqpjtxpicmxciswkfra.supabase.co";
+const supabaseKey = sb_publishable_qNJCUFUueTE9R5qXjk0irQ_jjdchZxT;
 
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+async function testConnection() {
+  const { data, error } = await supabase
+    .from("patients")
+    .select("*");
+
+  if (error) {
+    console.error("Erro ao conectar no Supabase:", error);
+  } else {
+    console.log("Pacientes:", data);
+  }
+}
+
+testConnection();
 const App = {
   currentPage: 'dashboard',
   currentPatient: null,
