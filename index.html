@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Meu Especialista — Plataforma All-in-One</title>
-<link rel="stylesheet" href="css/design-system.css">
+<link rel="stylesheet" href="./design-system.css">
 <style>
   /* SPINNER animation */
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -149,15 +149,18 @@
           Novo
         </button>
         <div id="quick-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:6px;min-width:200px;z-index:100">
-          ${[
-            ['crm','👤','Novo paciente'],
-            ['simulator','🫁','Nova simulação 3D'],
-            ['prontuario','🎙️','Iniciar consulta IA'],
-            ['agenda','📅','Novo agendamento'],
-          ].map(([page,icon,label])=>`
-          <div onclick="toggleQuickMenu();App.navigate('${page}')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
-            <span>${icon}</span>${label}
-          </div>`).join('')}
+          <div onclick="toggleQuickMenu();App.navigate('crm')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
+            <span>👤</span>Novo paciente
+          </div>
+          <div onclick="toggleQuickMenu();App.navigate('simulator')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
+            <span>🫁</span>Nova simulação 3D
+          </div>
+          <div onclick="toggleQuickMenu();App.navigate('prontuario')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
+            <span>🎙️</span>Iniciar consulta IA
+          </div>
+          <div onclick="toggleQuickMenu();App.navigate('agenda')" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:9px;color:var(--text2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
+            <span>📅</span>Novo agendamento
+          </div>
         </div>
       </div>
 
@@ -180,16 +183,17 @@
 
 </div>
 
-<script src="js/app.js"></script>
-<script src="js/pages.js"></script>
+<script src="./app.js"></script>
+<script src="./pages.js"></script>
 <script>
-  // Init app
-  window.addEventListener('DOMContentLoaded', () => {
+  function bootApp() {
+    if (!document.getElementById('main-content')) return;
     App.navigate('dashboard');
-  });
+  }
 
   window.toggleQuickMenu = function() {
     const m = document.getElementById('quick-menu');
+    if (!m) return;
     m.style.display = m.style.display === 'none' ? 'block' : 'none';
   };
 
@@ -200,6 +204,12 @@
       if (m) m.style.display = 'none';
     }
   });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootApp);
+  } else {
+    bootApp();
+  }
 </script>
 </body>
 </html>

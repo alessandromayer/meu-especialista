@@ -166,6 +166,17 @@ PageRenderers.dashboard = () => `
         </div>
       </div>
 
+      <!-- CANAIS -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Canais da clínica</span></div>
+        <div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <a class="btn btn-ghost btn-sm" href="${DB.surgeon.website}" target="_blank" rel="noopener noreferrer" style="justify-content:center">🌐 Website</a>
+          <a class="btn btn-ghost btn-sm" href="${DB.surgeon.instagram}" target="_blank" rel="noopener noreferrer" style="justify-content:center">📸 Instagram</a>
+          <a class="btn btn-ghost btn-sm" href="${DB.surgeon.facebook}" target="_blank" rel="noopener noreferrer" style="justify-content:center">📘 Facebook</a>
+          <a class="btn btn-ghost btn-sm" href="${DB.surgeon.whatsapp}" target="_blank" rel="noopener noreferrer" style="justify-content:center">💬 WhatsApp</a>
+        </div>
+      </div>
+
       <!-- NPS -->
       <div class="card">
         <div class="card-header"><span class="card-title">Satisfação dos pacientes</span></div>
@@ -643,7 +654,7 @@ PageInit.simulator = () => {
     slot.dataset.filled = '1';
     slot.innerHTML = '<span style="font-size:20px">✓</span><span style="font-size:10px;color:var(--pron)">Foto '+['F','D','E'][i]+'</span>';
     uploadCount++;
-    if (uploadCount >= 2) {
+    if (uploadCount >= 3) {
       const btn = document.getElementById('generate-btn');
       if (btn) btn.style.display = 'inline-flex';
     }
@@ -669,7 +680,7 @@ PageInit.simulator = () => {
           document.getElementById('upload-state').style.display = 'none';
           document.getElementById('model-state').style.display = 'block';
           document.getElementById('sim-mode-label').textContent = 'MODELO 3D · INTERATIVO';
-          renderBodyModel('breast');
+          renderBodyModel(currentType || 'breast');
         }, 600);
       }
     }, 600);

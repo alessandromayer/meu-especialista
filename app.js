@@ -63,7 +63,11 @@ const DB = {
     spec: 'Cirurgia Plástica Estética',
     initials: 'RV',
     crm: 'CRM/SP 123456',
-    clinic: 'Clínica Varela Estética'
+    clinic: 'Clínica Varela Estética',
+    website: 'https://www.clinicavarela.com.br',
+    instagram: 'https://www.instagram.com/clinicavarela',
+    facebook: 'https://www.facebook.com/clinicavarela',
+    whatsapp: 'https://wa.me/5511999999999'
   },
 
   patients: [
