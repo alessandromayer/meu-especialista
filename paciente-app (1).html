@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#06060f">
+<title>Meu Especialista — Área do Paciente</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#06060f;--s1:#0e0e1a;--s2:#161624;--s3:#1e1e30;
+  --border:rgba(255,255,255,.06);--b2:rgba(255,255,255,.1);
+  --accent:#d4b8ff;--accent2:#89c4ff;--accent3:#6effd4;--gold:#ffd97d;
+  --text:#f2eeff;--text2:#b0abc8;--muted:#5f5a78;--faint:#2e2a42;
+  --font:'Plus Jakarta Sans',sans-serif;--serif:'Playfair Display',serif;--mono:'DM Mono',monospace;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+html{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;overflow-x:hidden}
+body{min-height:100vh;padding-bottom:calc(76px + var(--safe-bottom))}
+
+/* ── SCREENS ── */
+.screen{display:none;animation:fadeUp .3s ease}
+.screen.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ══════════════════════════════════
+   AUTH — SPLIT LAYOUT
+══════════════════════════════════ */
+#screen-auth{
+  display:flex;min-height:100vh;position:relative;overflow:hidden
+}
+
+/* LEFT: animated 3D visual side */
+.auth-visual{
+  display:none;
+  flex:1;position:relative;overflow:hidden;
+  background:#06060f;
+}
+@media(min-width:900px){.auth-visual{display:flex;flex-direction:column;align-items:center;justify-content:center}}
+
+/* Animated body silhouettes */
+.body-canvas{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.body-anim{position:relative;width:320px;height:480px}
+.body-svg{position:absolute;top:0;left:0;opacity:0;transition:opacity 1.5s ease;animation:rotateShow 12s infinite}
+.body-svg:nth-child(1){animation-delay:0s}
+.body-svg:nth-child(2){animation-delay:4s}
+.body-svg:nth-child(3){animation-delay:8s}
+@keyframes rotateShow{
+  0%{opacity:0;transform:translateY(20px) scale(.95)}
+  10%{opacity:1;transform:translateY(0) scale(1)}
+  30%{opacity:1;transform:translateY(0) scale(1)}
+  40%{opacity:0;transform:translateY(-20px) scale(1.05)}
+  100%{opacity:0}
+}
+
+/* Glow orbs */
+.orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:.15;animation:float 8s ease-in-out infinite}
+.orb1{width:300px;height:300px;background:var(--accent);top:-50px;left:-50px;animation-delay:0s}
+.orb2{width:250px;height:250px;background:var(--accent2);bottom:-30px;right:-30px;animation-delay:3s}
+.orb3{width:180px;height:180px;background:var(--accent3);top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:1.5s}
+@keyframes float{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-30px) scale(1.05)}}
+.orb2{animation-name:float2}
+@keyframes float2{0%,100%{transform:translateY(0)}50%{transform:translateY(20px)}}
+
+/* Scan line effect */
+.scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.4;animation:scan 4s linear infinite}
+@keyframes scan{0%{top:-2px}100%{top:100%}}
+
+/* Grid overlay */
+.grid-overlay{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:40px 40px}
+
+/* Clinic branding on visual side */
+.auth-visual-brand{position:relative;z-index:2;text-align:center;padding:40px}
+.auth-visual-logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 0 40px rgba(212,184,255,.3)}
+.auth-visual-title{font-family:var(--serif);font-size:32px;font-weight:600;letter-spacing:-.5px;line-height:1.2;margin-bottom:12px}
+.auth-visual-sub{font-size:13px;color:var(--text2);line-height:1.6;max-width:300px;margin:0 auto}
+.auth-visual-stats{display:flex;gap:24px;justify-content:center;margin-top:32px}
+.auth-stat{text-align:center}
+.auth-stat-val{font-size:24px;font-weight:700;font-family:var(--mono);color:var(--accent)}
+.auth-stat-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* Procedure pills rotating */
+.proc-pills{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:24px;max-width:340px}
+.proc-pill{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:6px 14px;font-size:11px;color:var(--text2);animation:pillFade 0.5s ease both}
+@keyframes pillFade{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+
+/* RIGHT: auth form side */
+.auth-form-side{
+  width:100%;max-width:100%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:48px 28px;position:relative;z-index:2;
+  background:var(--bg);
+}
+@media(min-width:900px){
+  .auth-form-side{width:460px;flex-shrink:0;border-left:1px solid var(--border)}
+}
+
+/* Mobile: show logo on top */
+.auth-mobile-brand{text-align:center;margin-bottom:32px}
+.auth-mobile-brand .auth-visual-logo{margin:0 auto 14px}
+@media(min-width:900px){.auth-mobile-brand{display:none}}
+
+.auth-form-wrap{width:100%;max-width:380px}
+.auth-eyebrow{font-size:11px;color:var(--accent);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;font-family:var(--mono);margin-bottom:10px}
+.auth-heading{font-family:var(--serif);font-size:28px;font-weight:600;letter-spacing:-.3px;line-height:1.2;margin-bottom:6px}
+.auth-heading em{font-style:italic;color:var(--accent)}
+.auth-desc{font-size:13px;color:var(--muted);margin-bottom:32px;line-height:1.6}
+
+/* Form fields */
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;color:var(--muted);margin-bottom:7px;letter-spacing:.3px;font-weight:600}
+.inp{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;color:var(--text);font-size:14px;font-family:var(--font);transition:all .2s;-webkit-appearance:none;outline:none}
+.inp:focus{border-color:rgba(212,184,255,.5);background:var(--s3);box-shadow:0 0 0 3px rgba(212,184,255,.08)}
+.inp::placeholder{color:var(--muted)}
+
+/* Submit button */
+.btn-auth{
+  width:100%;padding:15px;border-radius:14px;border:none;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#06060f;font-size:14px;font-weight:700;font-family:var(--font);
+  cursor:pointer;transition:all .2s;margin-top:6px;
+  box-shadow:0 8px 24px rgba(212,184,255,.25);
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-auth:hover{transform:translateY(-1px);box-shadow:0 12px 32px rgba(212,184,255,.35)}
+.btn-auth:active{transform:translateY(0);opacity:.9}
+.btn-auth:disabled{opacity:.6;transform:none;cursor:wait}
+
+.auth-divider{display:flex;align-items:center;gap:12px;margin:20px 0;font-size:11px;color:var(--muted)}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Social proof */
+.social-proof{display:flex;align-items:center;gap:10px;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+.sp-avatars{display:flex}
+.sp-av{width:28px;height:28px;border-radius:50%;border:2px solid var(--bg);margin-left:-8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+.sp-av:first-child{margin-left:0}
+.sp-text{font-size:11px;color:var(--muted);line-height:1.4}
+.sp-text b{color:var(--text2)}
+
+.auth-switch{text-align:center;font-size:13px;color:var(--muted);margin-top:20px}
+.auth-switch a{color:var(--accent);cursor:pointer;font-weight:600;text-decoration:none}
+.msg-err{display:none;background:rgba(255,80,80,.07);border:1px solid rgba(255,80,80,.2);border-radius:10px;padding:11px 14px;font-size:12px;color:#ff8080;margin-bottom:16px;line-height:1.5}
+.msg-ok{display:none;background:rgba(110,255,212,.07);border:1px solid rgba(110,255,212,.2);border-radius:10px;padding:11px 14px;font-size:12px;color:var(--accent3);margin-bottom:16px}
+
+/* Trust badges */
+.trust-row{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:24px}
+.trust-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+
+/* ══════════════════════════════════
+   APP SHELL
+══════════════════════════════════ */
+.topbar{position:sticky;top:0;z-index:50;background:rgba(6,6,15,.9);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:12px}
+.tb-logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tb-title{font-size:15px;font-weight:700;flex:1}
+.tb-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#06060f;cursor:pointer;flex-shrink:0}
+.tb-back{width:34px;height:34px;border-radius:10px;background:var(--s2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;flex-shrink:0}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:50;background:rgba(6,6,15,.95);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-top:1px solid var(--border);padding:10px 0 calc(10px + var(--safe-bottom));display:none;justify-content:space-around}
+.nb{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 18px;cursor:pointer;position:relative}
+.nb svg{stroke:var(--muted);transition:stroke .2s}
+.nb span{font-size:10px;font-weight:500;color:var(--muted);transition:color .2s}
+.nb.active svg{stroke:var(--accent)}
+.nb.active span{color:var(--accent)}
+.nb-dot{position:absolute;top:4px;right:12px;width:6px;height:6px;background:#ff6b6b;border-radius:50%;border:1.5px solid var(--bg)}
+
+/* ── HOME ── */
+.hero{padding:24px 20px 18px;background:linear-gradient(180deg,rgba(212,184,255,.04) 0%,transparent 100%)}
+.hello{font-size:13px;color:var(--muted);margin-bottom:3px}
+.hello-name{font-family:var(--serif);font-size:24px;font-weight:600;letter-spacing:-.3px;line-height:1.2}
+.clinic-tag{display:inline-flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:5px 12px;margin-top:10px;font-size:12px;color:var(--text2)}
+.cdot{width:6px;height:6px;border-radius:50%;background:var(--accent3);flex-shrink:0}
+
+.appt-card{margin:14px 20px;background:linear-gradient(135deg,rgba(212,184,255,.09),rgba(137,196,255,.06));border:1px solid rgba(212,184,255,.15);border-radius:22px;padding:20px;position:relative;overflow:hidden}
+.appt-card::after{content:'📅';position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:44px;opacity:.1}
+.appt-lbl{font-size:10px;color:var(--accent);font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:7px;font-family:var(--mono)}
+.appt-dt{font-family:var(--serif);font-size:20px;font-weight:600;margin-bottom:4px}
+.appt-cl{font-size:12px;color:var(--text2)}
+.appt-btns{display:flex;gap:8px;margin-top:14px}
+.ab{flex:1;padding:10px;border-radius:12px;border:none;font-size:12px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all .2s}
+.ab:active{transform:scale(.96)}
+.ab-p{background:var(--accent);color:#06060f}
+.ab-g{background:rgba(255,255,255,.07);color:var(--text2);border:1px solid var(--border)}
+
+.sec{padding:18px 20px 0}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sec-t{font-size:14px;font-weight:700}
+.sec-lnk{font-size:12px;color:var(--accent);font-weight:600;cursor:pointer}
+
+.qgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 20px;margin-bottom:6px}
+.qcard{background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:18px 15px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.qcard::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.02),transparent);pointer-events:none}
+.qcard:active{transform:scale(.96)}
+.qcard.hl{background:linear-gradient(135deg,rgba(212,184,255,.08),rgba(137,196,255,.04));border-color:rgba(212,184,255,.18)}
+.qcard-ico{font-size:26px;margin-bottom:10px}
+.qcard-t{font-size:13px;font-weight:600;margin-bottom:2px}
+.qcard-s{font-size:11px;color:var(--muted);line-height:1.4}
+.qcard-arr{position:absolute;bottom:14px;right:14px;color:var(--muted);font-size:13px}
+
+.tl{padding:0 20px}
+.tl-item{display:flex;gap:13px;padding:13px 0;border-bottom:1px solid var(--border);position:relative}
+.tl-item:last-child{border-bottom:none}
+.tl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.tl-line{position:absolute;left:4px;top:26px;bottom:0;width:1px;background:var(--border)}
+.tl-item:last-child .tl-line{display:none}
+.tl-dt{font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:3px}
+.tl-t{font-size:13px;font-weight:600;margin-bottom:2px}
+.tl-s{font-size:11px;color:var(--text2);line-height:1.5}
+.tl-b{display:inline-flex;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;margin-top:5px}
+
+/* SIMS */
+.sim-card{background:var(--s1);border:1px solid var(--border);border-radius:22px;overflow:hidden;margin-bottom:14px}
+.sim-prev{height:160px;background:var(--s2);display:grid;grid-template-columns:1fr 1fr;position:relative}
+.sim-half{display:flex;align-items:center;justify-content:center;position:relative}
+.sim-hlbl{position:absolute;top:8px;left:8px;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;font-family:var(--mono);letter-spacing:.5px}
+.sim-div{position:absolute;left:50%;top:0;bottom:0;width:2px;background:linear-gradient(180deg,transparent,var(--accent),transparent);transform:translateX(-50%);z-index:2}
+.sim-inf{padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+.sim-n{font-size:13px;font-weight:600}
+.sim-d{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+.sim-btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#06060f;border:none;padding:8px 16px;border-radius:11px;font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all .2s}
+.sim-btn:hover{transform:scale(1.03)}
+
+/* DOCS */
+.doc-list{padding:0 20px}
+.doc-i{display:flex;align-items:center;gap:13px;padding:14px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .15s}
+.doc-i:active{opacity:.5}
+.doc-i:last-child{border-bottom:none}
+.doc-ico{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.doc-n{font-size:13px;font-weight:500}
+.doc-d{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* CHAT */
+.chat-wrap{padding:16px 20px 100px;display:flex;flex-direction:column;gap:12px;min-height:70vh}
+.msg{max-width:80%;padding:12px 15px;border-radius:18px;font-size:13px;line-height:1.5}
+.msg-c{background:var(--s2);border:1px solid var(--border);border-radius:18px 18px 18px 4px;align-self:flex-start}
+.msg-p{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#06060f;border-radius:18px 18px 4px 18px;align-self:flex-end;font-weight:500}
+.msg-tm{font-size:9px;color:var(--muted);margin-top:4px;font-family:var(--mono)}
+.msg-tm.r{text-align:right}
+.msg-sn{font-size:10px;color:var(--accent);font-weight:700;margin-bottom:4px;font-family:var(--mono)}
+.chat-inp-wrap{position:fixed;bottom:calc(70px + var(--safe-bottom));left:0;right:0;padding:10px 16px;background:rgba(6,6,15,.95);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;z-index:40}
+.chat-inp{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:22px;padding:11px 18px;color:var(--text);font-size:13px;font-family:var(--font);outline:none}
+.chat-snd{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:transform .15s}
+.chat-snd:active{transform:scale(.92)}
+
+/* PROFILE */
+.prof-hero{padding:28px 20px 18px;text-align:center}
+.prof-av{width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:26px;font-weight:600;color:#06060f;margin:0 auto 13px;box-shadow:0 0 30px rgba(212,184,255,.25)}
+.prof-name{font-family:var(--serif);font-size:20px;font-weight:600;margin-bottom:4px}
+.prof-info{font-size:12px;color:var(--muted)}
+.prof-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border-radius:18px;overflow:hidden;margin:18px 20px}
+.stat{background:var(--s1);padding:14px;text-align:center}
+.stat-v{font-size:20px;font-weight:700;font-family:var(--mono);color:var(--accent)}
+.stat-l{font-size:10px;color:var(--muted);margin-top:2px}
+.prof-sec{padding:0 20px;margin-bottom:18px}
+.prof-sec-lbl{font-size:10px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;font-weight:700;margin-bottom:10px}
+.prof-item{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .15s}
+.prof-item:active{opacity:.5}
+.prof-item:last-child{border-bottom:none}
+.prof-ico{width:36px;height:36px;border-radius:10px;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.logout-btn{width:calc(100% - 40px);margin:0 20px 20px;padding:13px;border-radius:14px;background:rgba(255,80,80,.07);border:1px solid rgba(255,80,80,.12);color:#ff8080;font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;display:block;text-align:center}
+
+/* UPLOAD */
+.upload-z{margin:0 20px;border:2px dashed var(--border);border-radius:22px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .3s}
+.upload-z:active{border-color:var(--accent);background:rgba(212,184,255,.03)}
+
+/* DESKTOP */
+.dsb{display:none}
+@media(min-width:768px){
+  body{padding-bottom:0}
+  .bottom-nav{display:none!important}
+  .dsb{display:flex;flex-direction:column;width:270px;min-height:100vh;background:var(--s1);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;padding:24px 14px;z-index:100;overflow-y:auto}
+  .dm{margin-left:270px}
+  .dsb-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px;padding:0 6px}
+  .dsb-ni{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;transition:all .15s;margin-bottom:3px}
+  .dsb-ni:hover{background:var(--s2);color:var(--text)}
+  .dsb-ni.active{background:rgba(212,184,255,.1);color:var(--accent)}
+  .topbar{display:none}
+  .qgrid{grid-template-columns:repeat(4,1fr)}
+  .chat-inp-wrap{left:270px}
+  .auth-form-side{min-height:100vh}
+}
+@media(min-width:1024px){
+  .dsb{width:290px}.dm{margin-left:290px}.chat-inp-wrap{left:290px}
+}
+
+/* TOAST */
+.toast{position:fixed;bottom:calc(90px + var(--safe-bottom));left:50%;transform:translateX(-50%) translateY(16px);background:var(--s3);border:1px solid var(--border);border-radius:14px;padding:11px 20px;font-size:12px;font-weight:600;white-space:nowrap;opacity:0;transition:all .3s;z-index:200;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(min-width:768px){.toast{bottom:24px}}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- ════════════════════════════
+     AUTH — SPLIT LAYOUT
+════════════════════════════ -->
+<div id="screen-auth" class="screen active" style="display:flex">
+
+  <!-- LEFT: visual side (desktop only) -->
+  <div class="auth-visual">
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
+    <div class="grid-overlay"></div>
+    <div class="scan-line"></div>
+    <div class="body-canvas">
+      <div class="body-anim">
+        <!-- Body SVG 1: breast simulation -->
+        <svg class="body-svg" viewBox="0 0 320 480" width="320" height="480" fill="none">
+          <ellipse cx="160" cy="90" rx="55" ry="65" fill="rgba(212,184,255,.06)" stroke="rgba(212,184,255,.3)" stroke-width="1"/>
+          <rect x="110" y="148" width="100" height="200" rx="40" fill="rgba(212,184,255,.04)" stroke="rgba(212,184,255,.2)" stroke-width="1"/>
+          <ellipse cx="133" cy="230" rx="36" ry="30" fill="rgba(212,184,255,.15)" stroke="rgba(212,184,255,.6)" stroke-width="1.5"/>
+          <ellipse cx="187" cy="230" rx="36" ry="30" fill="rgba(212,184,255,.15)" stroke="rgba(212,184,255,.6)" stroke-width="1.5"/>
+          <!-- measurement lines -->
+          <line x1="80" y1="200" x2="80" y2="260" stroke="rgba(212,184,255,.3)" stroke-width=".5" stroke-dasharray="3 3"/>
+          <line x1="240" y1="200" x2="240" y2="260" stroke="rgba(212,184,255,.3)" stroke-width=".5" stroke-dasharray="3 3"/>
+          <line x1="80" y1="230" x2="100" y2="230" stroke="rgba(212,184,255,.4)" stroke-width=".8"/>
+          <line x1="220" y1="230" x2="240" y2="230" stroke="rgba(212,184,255,.4)" stroke-width=".8"/>
+          <text x="50" y="234" font-size="10" fill="rgba(212,184,255,.5)" font-family="monospace">330cc</text>
+          <!-- dots -->
+          <circle cx="133" cy="230" r="3" fill="var(--accent)" opacity=".6"/>
+          <circle cx="187" cy="230" r="3" fill="var(--accent)" opacity=".6"/>
+          <line x1="95" y1="340" x2="75" y2="460" stroke="rgba(212,184,255,.15)" stroke-width="1"/>
+          <line x1="225" y1="340" x2="245" y2="460" stroke="rgba(212,184,255,.15)" stroke-width="1"/>
+          <text x="80" y="30" font-size="11" fill="rgba(212,184,255,.4)" font-family="monospace" text-anchor="middle" x="160">MAMA · SIMULAÇÃO 3D</text>
+        </svg>
+        <!-- Body SVG 2: face simulation -->
+        <svg class="body-svg" viewBox="0 0 320 480" width="320" height="480" fill="none">
+          <ellipse cx="160" cy="180" rx="75" ry="90" fill="rgba(137,196,255,.05)" stroke="rgba(137,196,255,.25)" stroke-width="1"/>
+          <ellipse cx="135" cy="165" rx="14" ry="10" fill="rgba(137,196,255,.2)"/>
+          <ellipse cx="185" cy="165" rx="14" ry="10" fill="rgba(137,196,255,.2)"/>
+          <!-- nose before -->
+          <path d="M150 185 Q160 205 170 185" fill="none" stroke="rgba(137,196,255,.3)" stroke-width="1" stroke-dasharray="4 3"/>
+          <!-- nose after -->
+          <path d="M152 185 Q160 200 168 185" fill="none" stroke="rgba(137,196,255,.8)" stroke-width="1.5"/>
+          <line x1="110" y1="180" x2="50" y2="160" stroke="rgba(137,196,255,.3)" stroke-width=".5" stroke-dasharray="2 2"/>
+          <text x="20" y="158" font-size="9" fill="rgba(137,196,255,.5)" font-family="monospace">-8°</text>
+          <path d="M148 215 Q160 225 172 215" fill="none" stroke="rgba(137,196,255,.6)" stroke-width="1.5"/>
+          <ellipse cx="160" cy="110" rx="30" ry="8" fill="rgba(137,196,255,.06)" stroke="rgba(137,196,255,.2)" stroke-width=".8"/>
+          <line x1="160" y1="265" x2="160" y2="380" stroke="rgba(137,196,255,.15)" stroke-width="1"/>
+          <circle cx="160" cy="180" r="85" stroke="rgba(137,196,255,.06)" stroke-width="20" fill="none"/>
+          <text x="160" y="30" font-size="11" fill="rgba(137,196,255,.4)" font-family="monospace" text-anchor="middle">ROSTO · RINOPLASTIA</text>
+        </svg>
+        <!-- Body SVG 3: body simulation -->
+        <svg class="body-svg" viewBox="0 0 320 480" width="320" height="480" fill="none">
+          <ellipse cx="160" cy="70" rx="42" ry="48" fill="rgba(110,255,212,.05)" stroke="rgba(110,255,212,.2)" stroke-width="1"/>
+          <rect x="118" y="112" width="84" height="160" rx="30" fill="rgba(110,255,212,.04)" stroke="rgba(110,255,212,.18)" stroke-width="1"/>
+          <!-- waist lines -->
+          <path d="M118 180 Q108 195 118 210" fill="none" stroke="rgba(110,255,212,.5)" stroke-width="1.5"/>
+          <path d="M202 180 Q212 195 202 210" fill="none" stroke="rgba(110,255,212,.5)" stroke-width="1.5"/>
+          <line x1="80" y1="195" x2="118" y2="195" stroke="rgba(110,255,212,.3)" stroke-width=".8" stroke-dasharray="3 2"/>
+          <line x1="202" y1="195" x2="240" y2="195" stroke="rgba(110,255,212,.3)" stroke-width=".8" stroke-dasharray="3 2"/>
+          <text x="40" y="198" font-size="9" fill="rgba(110,255,212,.5)" font-family="monospace">-6cm</text>
+          <!-- hip lines -->
+          <ellipse cx="160" cy="272" rx="50" ry="18" fill="rgba(110,255,212,.06)" stroke="rgba(110,255,212,.2)" stroke-width=".8"/>
+          <line x1="118" y1="272" x2="95" y2="340" stroke="rgba(110,255,212,.12)" stroke-width="1"/>
+          <line x1="202" y1="272" x2="225" y2="340" stroke="rgba(110,255,212,.12)" stroke-width="1"/>
+          <text x="160" y="30" font-size="11" fill="rgba(110,255,212,.4)" font-family="monospace" text-anchor="middle">CORPO · LIPOASPIRAÇÃO</text>
+        </svg>
+      </div>
+    </div>
+    <!-- Brand content -->
+    <div class="auth-visual-brand" style="position:absolute;bottom:0;left:0;right:0;padding:40px">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:rgba(212,184,255,.4);letter-spacing:1px;margin-bottom:10px">DR. RODRIGO VARELA · CRM/SP 123456</div>
+      <div style="font-family:'Playfair Display',serif;font-size:22px;color:rgba(255,255,255,.7);line-height:1.3;margin-bottom:16px">Veja o seu resultado<br><em style="color:var(--accent)">antes da cirurgia</em></div>
+      <div class="proc-pills">
+        <span class="proc-pill">Aumento mamário</span>
+        <span class="proc-pill">Rinoplastia</span>
+        <span class="proc-pill">Lipoaspiração</span>
+        <span class="proc-pill">Blefaroplastia</span>
+        <span class="proc-pill">Abdominoplastia</span>
+        <span class="proc-pill">Lifting facial</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: form side -->
+  <div class="auth-form-side">
+    <div class="auth-form-wrap">
+
+      <!-- Mobile brand (hidden on desktop) -->
+      <div class="auth-mobile-brand">
+        <div class="auth-visual-logo">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><path d="M13 2C6.93 2 2 6.93 2 13s4.93 11 11 11 11-4.93 11-11S19.07 2 13 2z"/><path d="M8 13h10M13 8v10"/></svg>
+        </div>
+        <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:600;margin-bottom:4px">Meu Especialista</div>
+        <div style="font-size:12px;color:var(--muted)">Clínica Varela Estética</div>
+      </div>
+
+      <div class="auth-eyebrow">Área do Paciente</div>
+      <div class="auth-heading" id="auth-heading">Descubra o seu<br><em>novo visual em 3D</em></div>
+      <div class="auth-desc" id="auth-desc">Aceda às suas simulações, consultas e documentos — com total privacidade e segurança.</div>
+
+      <div class="msg-err" id="aerr"></div>
+      <div class="msg-ok" id="aok"></div>
+
+      <!-- LOGIN -->
+      <div id="afl-login">
+        <div class="field"><label>Email</label><input class="inp" id="li-email" type="email" placeholder="o.seu@email.com" autocomplete="email"></div>
+        <div class="field" style="margin-bottom:8px"><label>Password</label><input class="inp" id="li-pass" type="password" placeholder="A sua password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+        <div style="text-align:right;margin-bottom:20px"><span style="font-size:12px;color:var(--accent);cursor:pointer" onclick="showReset()">Esqueci a password</span></div>
+        <button class="btn-auth" onclick="doLogin()" id="li-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 1a7 7 0 100 14A7 7 0 008 1z"/><path d="M8 5v3l2 2"/></svg>
+          Entrar na minha área
+        </button>
+      </div>
+
+      <!-- REGISTER -->
+      <div id="afl-reg" style="display:none">
+        <div class="field"><label>Nome completo</label><input class="inp" id="rg-name" type="text" placeholder="Maria Silva" autocomplete="name"></div>
+        <div class="field"><label>Telefone / WhatsApp</label><input class="inp" id="rg-phone" type="tel" placeholder="+55 11 9 0000-0000"></div>
+        <div class="field"><label>Email</label><input class="inp" id="rg-email" type="email" placeholder="o.seu@email.com"></div>
+        <div class="field" style="margin-bottom:6px"><label>Password</label><input class="inp" id="rg-pass" type="password" placeholder="Mínimo 8 caracteres"></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:20px;line-height:1.5">
+          Ao criar conta aceitas os <span style="color:var(--accent);cursor:pointer">Termos de Serviço</span> e a <span style="color:var(--accent);cursor:pointer">Política de Privacidade</span>.
+        </div>
+        <button class="btn-auth" onclick="doRegister()" id="rg-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 1a7 7 0 100 14A7 7 0 008 1z"/><path d="M5 8h6M8 5v6"/></svg>
+          Criar conta grátis
+        </button>
+      </div>
+
+      <!-- RESET -->
+      <div id="afl-reset" style="display:none">
+        <div class="field" style="margin-bottom:20px"><label>Email</label><input class="inp" id="rs-email" type="email" placeholder="o.seu@email.com"></div>
+        <button class="btn-auth" onclick="doReset()">Enviar link de recuperação</button>
+        <div class="auth-switch" style="margin-top:16px"><a onclick="showLogin()">← Voltar ao login</a></div>
+      </div>
+
+      <div class="auth-divider" id="auth-div">ou</div>
+
+      <div class="auth-switch" id="atoggle">Não tem conta? <a onclick="showRegister()">Registe-se grátis</a></div>
+
+      <!-- Social proof -->
+      <div class="social-proof">
+        <div class="sp-avatars">
+          <div class="sp-av" style="background:rgba(212,184,255,.2);color:var(--accent)">AS</div>
+          <div class="sp-av" style="background:rgba(137,196,255,.2);color:var(--accent2)">BF</div>
+          <div class="sp-av" style="background:rgba(110,255,212,.2);color:var(--accent3)">CR</div>
+          <div class="sp-av" style="background:rgba(212,184,255,.15);color:var(--accent)">+</div>
+        </div>
+        <div class="sp-text"><b>142 pacientes</b> já usam o Meu Especialista<br>Nota média: ⭐ 4.9 / 5.0</div>
+      </div>
+
+      <!-- Trust -->
+      <div class="trust-row">
+        <div class="trust-item">🔒 LGPD</div>
+        <div class="trust-item">🛡️ AES-256</div>
+        <div class="trust-item">🏥 CFM compliant</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- DESKTOP SIDEBAR -->
+<div class="dsb" id="dsb" style="display:none">
+  <div class="dsb-logo">
+    <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M9 1.5C4.86 1.5 1.5 4.86 1.5 9s3.36 7.5 7.5 7.5 7.5-3.36 7.5-7.5S13.14 1.5 9 1.5z"/><path d="M5.5 9h7M9 5.5v7"/></svg>
+    </div>
+    <div><div style="font-size:14px;font-weight:700">Meu Especialista</div><div style="font-size:10px;color:var(--muted)">Área do Paciente</div></div>
+  </div>
+  <div class="dsb-ni active" id="dn-home" onclick="goScreen('home')"><span style="font-size:17px">🏠</span> Início</div>
+  <div class="dsb-ni" id="dn-sims" onclick="goScreen('sims')"><span style="font-size:17px">🫁</span> Simulações 3D</div>
+  <div class="dsb-ni" id="dn-upload" onclick="goScreen('upload')"><span style="font-size:17px">📷</span> Enviar fotos</div>
+  <div class="dsb-ni" id="dn-docs" onclick="goScreen('docs')"><span style="font-size:17px">📋</span> Documentos</div>
+  <div class="dsb-ni" id="dn-chat" onclick="goScreen('chat')">
+    <span style="font-size:17px">💬</span> Mensagens
+    <span style="margin-left:auto;width:7px;height:7px;background:#ff6b6b;border-radius:50%"></span>
+  </div>
+  <div class="dsb-ni" id="dn-profile" onclick="goScreen('profile')"><span style="font-size:17px">👤</span> O meu perfil</div>
+  <div style="flex:1"></div>
+  <div style="background:var(--s2);border-radius:16px;border:1px solid var(--border);padding:14px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#06060f" id="dsb-av">MS</div>
+      <div><div style="font-size:12px;font-weight:600" id="dsb-name">Paciente</div><div style="font-size:10px;color:var(--muted);word-break:break-all" id="dsb-email"></div></div>
+    </div>
+    <button onclick="doLogout()" style="width:100%;padding:9px;border-radius:10px;background:rgba(255,80,80,.07);border:1px solid rgba(255,80,80,.12);color:#ff8080;font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer">Terminar sessão</button>
+  </div>
+</div>
+
+<!-- APP WRAP -->
+<div id="app-wrap" style="display:none">
+
+<!-- HOME -->
+<div id="screen-home" class="screen dm">
+  <div class="topbar">
+    <div class="tb-logo"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M7.5 1C3.9 1 1 3.9 1 7.5S3.9 14 7.5 14 14 11.1 14 7.5 11.1 1 7.5 1z"/><path d="M4.5 7.5h6M7.5 4.5v6"/></svg></div>
+    <div class="tb-title">Meu Especialista</div>
+    <div class="tb-av" id="top-av" onclick="goScreen('profile')">MS</div>
+  </div>
+  <div class="hero">
+    <div class="hello">Bem-vinda de volta 👋</div>
+    <div class="hello-name" id="hero-name">Maria Silva</div>
+    <div class="clinic-tag"><span class="cdot"></span>Clínica Varela Estética · Dr. Rodrigo Varela</div>
+  </div>
+  <div class="appt-card">
+    <div class="appt-lbl">Próxima consulta</div>
+    <div class="appt-dt">18 de Março · 09:00</div>
+    <div class="appt-cl">Aumento mamário · Pré-operatório</div>
+    <div class="appt-btns">
+      <button class="ab ab-p" onclick="goScreen('chat')">💬 Mensagem</button>
+      <button class="ab ab-g" onclick="goScreen('docs')">📋 Documentos</button>
+    </div>
+  </div>
+  <div class="sec"><div class="sec-hdr"><div class="sec-t">Acesso rápido</div></div></div>
+  <div class="qgrid">
+    <div class="qcard hl" onclick="goScreen('sims')"><div class="qcard-ico">🫁</div><div class="qcard-t">Simulação 3D</div><div class="qcard-s">1 disponível · 1 em preparação</div><div class="qcard-arr">→</div></div>
+    <div class="qcard" onclick="goScreen('docs')"><div class="qcard-ico">📋</div><div class="qcard-t">Documentos</div><div class="qcard-s">6 documentos</div><div class="qcard-arr">→</div></div>
+    <div class="qcard" onclick="goScreen('upload')"><div class="qcard-ico">📷</div><div class="qcard-t">Enviar fotos</div><div class="qcard-s">Para simulação 3D</div><div class="qcard-arr">→</div></div>
+    <div class="qcard" onclick="goScreen('chat')"><div class="qcard-ico">💬</div><div class="qcard-t">Mensagens</div><div class="qcard-s">1 não lida</div><div class="qcard-arr">→</div></div>
+  </div>
+  <div class="sec" style="margin-top:20px"><div class="sec-hdr"><div class="sec-t">Histórico</div><div class="sec-lnk" onclick="goScreen('docs')">Ver tudo</div></div></div>
+  <div class="tl">
+    <div class="tl-item"><div class="tl-line"></div><div class="tl-dot" style="background:var(--accent)"></div><div><div class="tl-dt">28 Fev 2026</div><div class="tl-t">Simulação 3D aprovada pelo médico</div><div class="tl-s">Aumento mamário 330cc — disponível para visualizar</div><div class="tl-b" style="background:rgba(212,184,255,.1);color:var(--accent)">Simulação</div></div></div>
+    <div class="tl-item"><div class="tl-line"></div><div class="tl-dot" style="background:var(--accent3)"></div><div><div class="tl-dt">20 Fev 2026</div><div class="tl-t">Consulta inicial</div><div class="tl-s">Prontuário criado · Exames solicitados</div><div class="tl-b" style="background:rgba(110,255,212,.1);color:var(--accent3)">Consulta</div></div></div>
+    <div class="tl-item"><div class="tl-dot" style="background:var(--accent2)"></div><div><div class="tl-dt">15 Fev 2026</div><div class="tl-t">Bem-vinda ao Meu Especialista!</div><div class="tl-s">Conta criada com sucesso</div><div class="tl-b" style="background:rgba(137,196,255,.1);color:var(--accent2)">Início</div></div></div>
+  </div>
+  <div style="height:24px"></div>
+</div>
+
+<!-- SIMULAÇÕES -->
+<div id="screen-sims" class="screen dm">
+  <div class="topbar"><div class="tb-back" onclick="goScreen('home')">←</div><div class="tb-title">Simulações 3D</div><div class="sec-lnk" style="font-size:12px" onclick="goScreen('upload')">+ Nova</div></div>
+  <div style="padding:16px 20px 0">
+    <!-- SIM 1: APROVADA -->
+    <div class="sim-card">
+      <div class="sim-prev">
+        <div class="sim-half" style="background:rgba(212,184,255,.03)">
+          <span class="sim-hlbl" style="background:rgba(0,0,0,.6);color:var(--muted)">ANTES</span>
+          <svg viewBox="0 0 80 120" width="70" height="110" fill="none" opacity=".3"><ellipse cx="40" cy="25" rx="16" ry="18" fill="var(--accent)"/><rect x="24" y="40" width="32" height="65" rx="14" fill="var(--accent)"/><ellipse cx="33" cy="68" rx="10" ry="8" fill="rgba(212,184,255,.4)"/><ellipse cx="47" cy="68" rx="10" ry="8" fill="rgba(212,184,255,.4)"/></svg>
+        </div>
+        <div class="sim-half" style="background:rgba(212,184,255,.03)">
+          <div class="sim-div"></div>
+          <span class="sim-hlbl" style="background:rgba(212,184,255,.2);color:var(--accent);right:8px;left:auto">DEPOIS</span>
+          <svg viewBox="0 0 80 120" width="70" height="110" fill="none"><ellipse cx="40" cy="25" rx="16" ry="18" fill="var(--accent)" opacity=".5"/><rect x="24" y="40" width="32" height="65" rx="14" fill="var(--accent)" opacity=".5"/><ellipse cx="32" cy="70" rx="14" ry="12" fill="rgba(212,184,255,.5)" stroke="var(--accent)" stroke-width="1.5"/><ellipse cx="48" cy="70" rx="14" ry="12" fill="rgba(212,184,255,.5)" stroke="var(--accent)" stroke-width="1.5"/></svg>
+        </div>
+      </div>
+      <div class="sim-inf">
+        <div><div class="sim-n">Aumento mamário 330cc</div><div class="sim-d">28 Fev 2026 · Dr. Varela</div></div>
+        <button class="sim-btn" onclick="showToast('A abrir simulação 3D interactiva...')">Ver 3D</button>
+      </div>
+    </div>
+    <!-- SIM 2: PRIVADA (médico ainda não partilhou) -->
+    <div class="sim-card" style="position:relative;overflow:hidden">
+      <div style="position:absolute;inset:0;z-index:10;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);background:rgba(6,6,15,.8);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px">🔒</div>
+        <div style="font-family:'Playfair Display',serif;font-size:15px;font-weight:600">Simulação em preparação</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.5;max-width:240px">O Dr. Varela está a preparar esta simulação. Será notificada quando estiver disponível.</div>
+      </div>
+      <div class="sim-prev" style="filter:blur(3px)">
+        <div class="sim-half" style="background:rgba(137,196,255,.03)"><svg viewBox="0 0 80 120" width="70" height="110" fill="none" opacity=".15"><ellipse cx="40" cy="30" rx="18" ry="22" fill="var(--accent2)"/><rect x="24" y="50" width="32" height="55" rx="14" fill="var(--accent2)"/></svg></div>
+        <div class="sim-half" style="background:rgba(137,196,255,.03)"><svg viewBox="0 0 80 120" width="70" height="110" fill="none" opacity=".15"><ellipse cx="40" cy="30" rx="18" ry="22" fill="var(--accent2)"/><rect x="24" y="50" width="32" height="55" rx="14" fill="var(--accent2)"/></svg></div>
+      </div>
+      <div class="sim-inf"><div><div class="sim-n">Rinoplastia</div><div class="sim-d">05 Mar 2026</div></div><span style="font-size:10px;background:rgba(255,80,80,.1);color:#ff8080;padding:5px 11px;border-radius:10px;font-weight:700">🔒 Privada</span></div>
+    </div>
+    <div class="upload-z" onclick="goScreen('upload')">
+      <div style="font-size:34px;margin-bottom:12px">📷</div>
+      <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:600;margin-bottom:6px">Criar nova simulação</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.5">Envie 3 fotos e o Dr. Varela cria a sua simulação 3D personalizada</div>
+      <button style="display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#06060f;border:none;padding:12px 22px;border-radius:12px;font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;margin-top:18px">📷 Enviar fotos agora</button>
+    </div>
+  </div>
+  <div style="height:24px"></div>
+</div>
+
+<!-- UPLOAD -->
+<div id="screen-upload" class="screen dm">
+  <div class="topbar"><div class="tb-back" onclick="goScreen('sims')">←</div><div class="tb-title">Enviar fotos</div><div style="width:34px"></div></div>
+  <div style="padding:20px">
+    <div style="background:linear-gradient(135deg,rgba(212,184,255,.08),rgba(137,196,255,.04));border:1px solid rgba(212,184,255,.15);border-radius:20px;padding:18px;margin-bottom:24px">
+      <div style="font-family:'Playfair Display',serif;font-size:15px;font-weight:600;margin-bottom:6px">🫁 Como funciona</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7">Envie <b>3 fotos</b> e o Dr. Varela gera a sua simulação 3D personalizada — veja o resultado antes mesmo de chegar à consulta.</div>
+    </div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:13px">Tipo de simulação</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:24px">
+      <div id="st0" onclick="selType(0)" style="background:var(--s1);border:1.5px solid var(--accent);border-radius:16px;padding:16px;text-align:center;cursor:pointer;transition:all .2s"><div style="font-size:24px;margin-bottom:6px">🫁</div><div style="font-size:12px;font-weight:600;color:var(--accent)">Mama</div></div>
+      <div id="st1" onclick="selType(1)" style="background:var(--s1);border:1.5px solid var(--border);border-radius:16px;padding:16px;text-align:center;cursor:pointer;transition:all .2s"><div style="font-size:24px;margin-bottom:6px">👤</div><div style="font-size:12px;font-weight:600;color:var(--text2)">Rosto</div></div>
+      <div id="st2" onclick="selType(2)" style="background:var(--s1);border:1.5px solid var(--border);border-radius:16px;padding:16px;text-align:center;cursor:pointer;transition:all .2s"><div style="font-size:24px;margin-bottom:6px">🫀</div><div style="font-size:12px;font-weight:600;color:var(--text2)">Corpo</div></div>
+    </div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:13px">Carregue as 3 fotos</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:24px">
+      <div id="ps0" onclick="addPhoto(0)" style="border:1.5px dashed var(--border);border-radius:16px;padding:20px 8px;text-align:center;cursor:pointer;min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:all .2s"><div style="font-size:22px">📷</div><div style="font-size:11px;color:var(--muted)">Frontal</div></div>
+      <div id="ps1" onclick="addPhoto(1)" style="border:1.5px dashed var(--border);border-radius:16px;padding:20px 8px;text-align:center;cursor:pointer;min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:all .2s"><div style="font-size:22px">↩️</div><div style="font-size:11px;color:var(--muted)">Lateral E</div></div>
+      <div id="ps2" onclick="addPhoto(2)" style="border:1.5px dashed var(--border);border-radius:16px;padding:20px 8px;text-align:center;cursor:pointer;min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:all .2s"><div style="font-size:22px">↪️</div><div style="font-size:11px;color:var(--muted)">Lateral D</div></div>
+    </div>
+    <div id="uprog" style="display:none;margin-bottom:20px">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px" id="uprog-lbl">A processar...</div>
+      <div style="height:3px;background:var(--s2);border-radius:2px;overflow:hidden"><div id="uprog-fill" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent3));border-radius:2px;width:0%;transition:width .3s"></div></div>
+    </div>
+    <button id="send-btn" onclick="doUpload()" style="display:none;width:100%;padding:15px;border-radius:16px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#06060f;font-size:14px;font-weight:700;font-family:var(--font);cursor:pointer;margin-bottom:12px;box-shadow:0 8px 24px rgba(212,184,255,.2)">✨ Enviar para o Dr. Varela</button>
+    <div style="font-size:11px;color:var(--muted);text-align:center;line-height:1.6">🔒 As suas fotos são privadas e só o seu médico as vê</div>
+  </div>
+</div>
+
+<!-- DOCUMENTOS -->
+<div id="screen-docs" class="screen dm">
+  <div class="topbar"><div class="tb-back" onclick="goScreen('home')">←</div><div class="tb-title">Documentos</div><div style="width:34px"></div></div>
+  <div class="sec" style="margin-top:12px"><div class="sec-hdr"><div class="sec-t">Os seus documentos clínicos</div></div></div>
+  <div class="doc-list">
+    <div class="doc-i" onclick="showToast('A abrir documento...')"><div class="doc-ico" style="background:rgba(212,184,255,.08)">📋</div><div><div class="doc-n">Prontuário completo</div><div class="doc-d">Consulta 28 Fev 2026 · Gerado por IA</div></div><div style="color:var(--muted);margin-left:auto">↓</div></div>
+    <div class="doc-i" onclick="showToast('A abrir documento...')"><div class="doc-ico" style="background:rgba(137,196,255,.08)">💊</div><div><div class="doc-n">Receita médica</div><div class="doc-d">Analgésico pós-op · Validade 30 dias</div></div><div style="color:var(--muted);margin-left:auto">↓</div></div>
+    <div class="doc-i" onclick="showToast('A abrir documento...')"><div class="doc-ico" style="background:rgba(110,255,212,.08)">🔬</div><div><div class="doc-n">Exames pré-operatórios</div><div class="doc-d">Hemograma + coagulação</div></div><div style="color:var(--muted);margin-left:auto">↓</div></div>
+    <div class="doc-i" onclick="showToast('A abrir documento...')"><div class="doc-ico" style="background:rgba(255,217,125,.08)">✍️</div><div><div class="doc-n">Termo de consentimento</div><div class="doc-d">Aumento mamário · Assinado digitalmente</div></div><div style="color:var(--muted);margin-left:auto">↓</div></div>
+    <div class="doc-i" onclick="showToast('A abrir documento...')"><div class="doc-ico" style="background:rgba(212,184,255,.06)">📊</div><div><div class="doc-n">Laudo pré-operatório</div><div class="doc-d">Aguardando resultado dos exames</div></div><div style="color:var(--muted);margin-left:auto">↓</div></div>
+    <div class="doc-i" onclick="showToast('A abrir documento...')"><div class="doc-ico" style="background:rgba(137,196,255,.06)">📄</div><div><div class="doc-n">Resumo da consulta</div><div class="doc-d">IA gerado · 20 Fev 2026</div></div><div style="color:var(--muted);margin-left:auto">↓</div></div>
+  </div>
+  <div style="height:24px"></div>
+</div>
+
+<!-- CHAT -->
+<div id="screen-chat" class="screen dm">
+  <div class="topbar"><div class="tb-back" onclick="goScreen('home')">←</div><div style="flex:1"><div class="tb-title">Clínica Varela Estética</div><div style="font-size:10px;color:var(--accent3)">● Online agora</div></div><div style="width:34px"></div></div>
+  <div class="chat-wrap" id="chat-msgs">
+    <div><div class="msg msg-c"><div class="msg-sn">Clínica Varela</div>Olá! Bem-vinda à área do paciente 🌟 Aqui pode ver as suas simulações, documentos e falar connosco a qualquer hora.</div><div class="msg-tm">09:00</div></div>
+    <div style="align-self:flex-end"><div class="msg msg-p">Que app incrível! Posso ver a minha simulação aqui?</div><div class="msg-tm r">09:02</div></div>
+    <div><div class="msg msg-c"><div class="msg-sn">IA · Clínica Varela</div>Claro! Vá ao separador 🫁 Simulações — a sua simulação 3D de aumento mamário 330cc está aprovada pelo Dr. Varela e pronta para ver 😊</div><div class="msg-tm">09:03</div></div>
+  </div>
+  <div class="chat-inp-wrap">
+    <input class="chat-inp" id="chat-inp" placeholder="Escreva uma mensagem..." onkeydown="if(event.key==='Enter')sendMsg()">
+    <button class="chat-snd" onclick="sendMsg()"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#06060f" stroke-width="2" stroke-linecap="round"><path d="M13 2L1 6.5l4.5 3.5 2 4.5 2.5-5.5L13 2z"/></svg></button>
+  </div>
+</div>
+
+<!-- PERFIL -->
+<div id="screen-profile" class="screen dm">
+  <div class="topbar"><div class="tb-back" onclick="goScreen('home')">←</div><div class="tb-title">O meu perfil</div><div style="width:34px"></div></div>
+  <div class="prof-hero">
+    <div class="prof-av" id="prof-av"><span id="prof-ini">MS</span></div>
+    <div class="prof-name" id="prof-name">Maria Silva</div>
+    <div class="prof-info" id="prof-email">maria@email.com</div>
+  </div>
+  <div class="prof-stats">
+    <div class="stat"><div class="stat-v">2</div><div class="stat-l">Simulações</div></div>
+    <div class="stat"><div class="stat-v">3</div><div class="stat-l">Consultas</div></div>
+    <div class="stat"><div class="stat-v">6</div><div class="stat-l">Documentos</div></div>
+  </div>
+  <div class="prof-sec">
+    <div class="prof-sec-lbl">A minha clínica</div>
+    <div class="prof-item" onclick="showToast('Em breve...')"><div class="prof-ico">🏥</div><div style="flex:1"><div style="font-size:13px;font-weight:500">Clínica Varela Estética</div><div style="font-size:11px;color:var(--muted)">Dr. Rodrigo Varela</div></div><div style="color:var(--muted)">›</div></div>
+    <div class="prof-item" onclick="showToast('Em breve...')"><div class="prof-ico">📅</div><div style="flex:1"><div style="font-size:13px;font-weight:500">Próxima consulta</div><div style="font-size:11px;color:var(--muted)">18 Mar 2026 · 09:00</div></div><div style="color:var(--muted)">›</div></div>
+    <div class="prof-item" onclick="showToast('Em breve...')"><div class="prof-ico">🔔</div><div style="flex:1"><div style="font-size:13px;font-weight:500">Notificações</div></div><div style="color:var(--muted)">›</div></div>
+    <div class="prof-item" onclick="showToast('Em breve...')"><div class="prof-ico">🔒</div><div style="flex:1"><div style="font-size:13px;font-weight:500">Privacidade</div></div><div style="color:var(--muted)">›</div></div>
+  </div>
+  <button class="logout-btn" onclick="doLogout()">Terminar sessão</button>
+  <div style="height:24px"></div>
+</div>
+
+</div><!-- /app-wrap -->
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav" id="bnav">
+  <div class="nb active" id="nb-home" onclick="goScreen('home')"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke-width="1.6" stroke-linecap="round"><path d="M3 10.5L11 3l8 7.5V19a1 1 0 01-1 1H14v-5h-4v5H4a1 1 0 01-1-1z"/></svg><span>Início</span></div>
+  <div class="nb" id="nb-sims" onclick="goScreen('sims')"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke-width="1.6" stroke-linecap="round"><path d="M11 2L13.5 8.5H20L14.5 12.5L16.5 19L11 15L5.5 19L7.5 12.5L2 8.5H8.5Z"/></svg><span>Simulações</span></div>
+  <div class="nb" id="nb-docs" onclick="goScreen('docs')"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="2" width="14" height="18" rx="2"/><path d="M8 7h6M8 11h6M8 15h4"/></svg><span>Documentos</span></div>
+  <div class="nb" id="nb-chat" onclick="goScreen('chat')"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke-width="1.6" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span>Mensagens</span><div class="nb-dot"></div></div>
+  <div class="nb" id="nb-profile" onclick="goScreen('profile')"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="7" r="4"/><path d="M3 20c0-4.42 3.58-8 8-8s8 3.58 8 8"/></svg><span>Perfil</span></div>
+</nav>
+
+<script>
+const navIds=['home','sims','docs','chat','profile'];
+const allScreens=['home','sims','upload','docs','chat','profile'];
+
+function goScreen(id){
+  allScreens.forEach(s=>{const el=document.getElementById('screen-'+s);if(el){el.classList.remove('active');el.style.display='none';}});
+  const t=document.getElementById('screen-'+id);if(t){t.style.display='block';t.classList.add('active');}
+  navIds.forEach(s=>{
+    const b=document.getElementById('nb-'+s);if(b)b.classList.toggle('active',s===id||(id==='upload'&&s==='sims'));
+    const db=document.getElementById('dn-'+s);if(db)db.classList.toggle('active',s===id);
+  });
+  window.scrollTo(0,0);
+}
+
+function showToast(m){
+  const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+function setUI(name,email){
+  const ini=name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  const map={'top-av':ini,'prof-ini':ini,'prof-name':name,'prof-email':email,'dsb-av':ini,'dsb-name':name,'dsb-email':email,'hero-name':name};
+  Object.entries(map).forEach(([id,val])=>{const el=document.getElementById(id);if(el)el.textContent=val;});
+}
+
+function showApp(name,email){
+  document.getElementById('screen-auth').style.display='none';
+  document.getElementById('app-wrap').style.display='block';
+  document.getElementById('bnav').style.display='flex';
+  document.getElementById('dsb').style.display='flex';
+  setUI(name,email);goScreen('home');
+}
+
+function showLogin(){
+  document.getElementById('afl-login').style.display='block';
+  document.getElementById('afl-reg').style.display='none';
+  document.getElementById('afl-reset').style.display='none';
+  document.getElementById('auth-heading').innerHTML='Descubra o seu<br><em>novo visual em 3D</em>';
+  document.getElementById('auth-desc').textContent='Aceda às suas simulações, consultas e documentos — com total privacidade e segurança.';
+  document.getElementById('atoggle').innerHTML='Não tem conta? <a onclick="showRegister()">Registe-se grátis</a>';
+  document.getElementById('auth-div').style.display='flex';
+  clearA();
+}
+function showRegister(){
+  document.getElementById('afl-login').style.display='none';
+  document.getElementById('afl-reg').style.display='block';
+  document.getElementById('afl-reset').style.display='none';
+  document.getElementById('auth-heading').innerHTML='Crie a sua<br><em>conta gratuita</em>';
+  document.getElementById('auth-desc').textContent='Registe-se e veja o seu resultado em 3D antes da consulta.';
+  document.getElementById('atoggle').innerHTML='Já tem conta? <a onclick="showLogin()">Entrar</a>';
+  document.getElementById('auth-div').style.display='flex';
+  clearA();
+}
+function showReset(){
+  document.getElementById('afl-login').style.display='none';
+  document.getElementById('afl-reg').style.display='none';
+  document.getElementById('afl-reset').style.display='block';
+  document.getElementById('auth-heading').innerHTML='Recuperar<br><em>password</em>';
+  document.getElementById('auth-desc').textContent='Enviaremos um link de recuperação para o seu email.';
+  document.getElementById('atoggle').style.display='none';
+  document.getElementById('auth-div').style.display='none';
+  clearA();
+}
+function clearA(){['aerr','aok'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.display='none';el.textContent='';}}); const at=document.getElementById('atoggle');if(at)at.style.display='block';}
+function showErr(m){const e=document.getElementById('aerr');e.textContent=m;e.style.display='block';document.getElementById('aok').style.display='none';}
+function showOk(m){const e=document.getElementById('aok');e.textContent=m;e.style.display='block';document.getElementById('aerr').style.display='none';}
+
+function doLogin(){
+  const email=document.getElementById('li-email').value.trim();
+  const pass=document.getElementById('li-pass').value;
+  const btn=document.getElementById('li-btn');
+  if(!email||!pass){showErr('Preencha email e password.');return;}
+  btn.textContent='A entrar...';btn.disabled=true;
+  setTimeout(()=>{
+    const name=email.split('@')[0].replace(/[._-]/g,' ').replace(/\b\w/g,l=>l.toUpperCase());
+    showApp(name,email);
+  },1000);
+}
+function doRegister(){
+  const name=document.getElementById('rg-name').value.trim();
+  const email=document.getElementById('rg-email').value.trim();
+  const pass=document.getElementById('rg-pass').value;
+  const btn=document.getElementById('rg-btn');
+  if(!name||!email||!pass){showErr('Preencha todos os campos.');return;}
+  if(pass.length<6){showErr('Password mínimo 6 caracteres.');return;}
+  btn.textContent='A criar conta...';btn.disabled=true;
+  setTimeout(()=>showApp(name,email),1200);
+}
+function doReset(){showOk('✅ Link de recuperação enviado! Verifique o seu email.');}
+function doLogout(){
+  document.getElementById('app-wrap').style.display='none';
+  document.getElementById('bnav').style.display='none';
+  document.getElementById('dsb').style.display='none';
+  document.getElementById('screen-auth').style.display='flex';
+  const b1=document.getElementById('li-btn');if(b1){b1.innerHTML='<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 1a7 7 0 100 14A7 7 0 008 1z"/><path d="M8 5v3l2 2"/></svg> Entrar na minha área';b1.disabled=false;}
+  const b2=document.getElementById('rg-btn');if(b2){b2.innerHTML='<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 1a7 7 0 100 14A7 7 0 008 1z"/><path d="M5 8h6M8 5v6"/></svg> Criar conta grátis';b2.disabled=false;}
+  showLogin();
+}
+
+let photoCnt=0;
+function selType(i){
+  [0,1,2].forEach(j=>{
+    const el=document.getElementById('st'+j);
+    el.style.borderColor=j===i?'var(--accent)':'var(--border)';
+    el.querySelector('div:last-child').style.color=j===i?'var(--accent)':'var(--text2)';
+  });
+}
+function addPhoto(i){
+  const s=document.getElementById('ps'+i);if(s.dataset.done)return;
+  s.dataset.done='1';s.style.borderColor='var(--accent3)';s.style.background='rgba(110,255,212,.05)';
+  s.innerHTML='<div style="font-size:22px">✅</div><div style="font-size:11px;color:var(--accent3)">Carregada</div>';
+  photoCnt++;if(photoCnt>=2)document.getElementById('send-btn').style.display='block';
+}
+function doUpload(){
+  const prog=document.getElementById('uprog');const fill=document.getElementById('uprog-fill');const lbl=document.getElementById('uprog-lbl');const btn=document.getElementById('send-btn');
+  btn.style.display='none';prog.style.display='block';
+  const steps=['A analisar fotos...','A criar modelo 3D...','A enviar para o Dr. Varela...','Concluído! ✅'];
+  let p=0,si=0;
+  const iv=setInterval(()=>{p+=25;fill.style.width=p+'%';lbl.textContent=steps[si++]||steps[steps.length-1];
+    if(p>=100){clearInterval(iv);setTimeout(()=>{showToast('📷 Fotos enviadas! O Dr. Varela será notificado.');goScreen('sims');},600);}
+  },800);
+}
+
+function sendMsg(){
+  const inp=document.getElementById('chat-inp');if(!inp.value.trim())return;
+  const m=inp.value.trim();inp.value='';
+  const wrap=document.getElementById('chat-msgs');
+  const d=document.createElement('div');d.style.alignSelf='flex-end';
+  d.innerHTML=`<div class="msg msg-p">${m}</div><div class="msg-tm r">Agora</div>`;
+  wrap.appendChild(d);wrap.scrollTop=wrap.scrollHeight;
+  setTimeout(()=>{
+    const r=document.createElement('div');
+    r.innerHTML=`<div class="msg msg-c"><div class="msg-sn">IA · Clínica Varela</div>Obrigada pela sua mensagem! A nossa equipa responderá em breve. Pode ver os seus documentos em 📋 Documentos.</div><div class="msg-tm">Agora</div>`;
+    wrap.appendChild(r);wrap.scrollTop=wrap.scrollHeight;
+  },1400);
+}
+</script>
+</body>
+</html>
