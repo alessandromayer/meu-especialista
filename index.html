@@ -1024,12 +1024,12 @@ PageRenderers.dashboard = () => `
         <div style="padding:4px 16px">
           ${DB.agenda.filter(a => a.patient !== 'ALMOÇO').map(a => `
           <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
-            <div style="background:rgba(79,156,249,.08);border:1px solid rgba(79,156,249,.15);color:var(--crm);font-family:var(--mono);font-size:11px;padding:4px 7px;border-radius:6px;min-width:44px;text-align:center">${a.time}</div>
+            <div style="background:rgba(79,156,249,.08);border:1px solid rgba(79,156,249,.15);color:var(--crm);font-family:var(--mono);font-size:11px;padding:4px 7px;border-radius:6px;min-width:44px;text-align:center">${formatTime(a.starts_at)}</div>
             <div style="flex:1">
-              <div style="font-size:12px;font-weight:500">${a.patient}</div>
+              <div style="font-size:12px;font-weight:500">${a.patient_name||'—'}</div>
               ${a.type ? '<div style="font-size:10px;color:var(--muted)">'+a.type+'</div>' : ''}
             </div>
-            <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${a.duration}min</div>
+            <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${(a.duration_min||'?')+"min"}min</div>
           </div>`).join('')}
         </div>
       </div>
