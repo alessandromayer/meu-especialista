@@ -1428,611 +1428,596 @@ PageInit.crm = (opts) => {
 
 // =============================================
 // =============================================
-// 3. SIMULATOR 3D — Motor SVG Dinâmico
+// =============================================
+// 3. SIMULATOR 3D — Mama (estilo Crisalix)
 // =============================================
 PageRenderers.simulator = () => `
-<div class="page">
-  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
-    <div>
-      <div class="page-title">Simulador 3D</div>
-      <div class="page-sub">Motor SVG · Mama · Rosto · Corpo · Antes/Depois</div>
+<div class="page" style="padding:0;height:calc(100vh - 56px);display:flex;flex-direction:column;overflow:hidden">
+
+  <!-- TOP BAR -->
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="btn btn-ghost btn-sm" onclick="App.navigate('crm')" style="font-size:11px">← Pacientes</button>
+      <span style="font-size:11px;color:var(--muted)" id="sim-patient-label">Sem paciente seleccionado</span>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-ghost btn-sm" onclick="exportSimPNG()">⬇ Exportar PNG</button>
-      <button class="btn btn-sim btn-sm" onclick="saveSim()">💾 Guardar simulação</button>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;gap:2px;background:var(--s2);border-radius:8px;padding:3px">
+        ${['VR','2D','3D'].map((v,i)=>`<button onclick="setViewMode('${v}')" id="vmode-${v}" class="btn btn-ghost btn-sm" style="font-size:10px;padding:4px 10px;${i===2?'background:var(--s3);color:var(--text)':''}">${v}</button>`).join('')}
+      </div>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="simShare()">🔗 Partilhar</button>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="simPDF()">PDF</button>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="simExport()">⬇</button>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:260px 1fr 260px;gap:16px;height:calc(100vh - 200px);min-height:520px">
+  <!-- MAIN AREA -->
+  <div style="display:flex;flex:1;overflow:hidden">
 
-    <!-- LEFT CONTROLS -->
-    <div style="display:flex;flex-direction:column;gap:14px;overflow-y:auto;padding-right:4px">
-
-      <!-- PATIENT SELECT -->
-      <div class="card">
-        <div class="card-header"><span class="card-title">Paciente</span></div>
-        <div style="padding:12px">
-          <select class="input select" style="margin-bottom:10px" id="sim-patient-select">
-            <option value="">— Selecionar paciente —</option>
-            ${AppData.patients.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-          </select>
-          <div id="sim-patient-info" style="display:none;background:var(--s2);border-radius:8px;padding:10px;font-size:11px">
-            <div style="font-weight:500" id="sim-patient-name"></div>
-            <div style="color:var(--muted)" id="sim-patient-proc"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- PROCEDURE TYPE -->
-      <div class="card">
-        <div class="card-header"><span class="card-title">Tipo de simulação</span></div>
-        <div style="padding:12px;display:flex;flex-direction:column;gap:6px">
-          ${[
-            ['breast','🫁','Mama','Aumento · Redução · Ptose'],
-            ['face','👤','Rosto','Rinoplastia · Lábios · Queixo'],
-            ['body','🏃','Corpo','Lipo · Abdomino · Glúteo'],
-          ].map(([type,icon,label,sub]) => `
-          <div id="simtype-${type}" onclick="selectSimType('${type}')" style="background:var(--s2);border:1.5px solid var(--border);border-radius:9px;padding:11px;cursor:pointer;transition:all .2s">
-            <div style="display:flex;align-items:center;gap:9px">
-              <span style="font-size:18px">${icon}</span>
-              <div>
-                <div style="font-size:12px;font-weight:600">${label}</div>
-                <div style="font-size:10px;color:var(--muted)">${sub}</div>
-              </div>
-            </div>
-          </div>`).join('')}
-        </div>
-      </div>
-
-      <!-- PARAMS -->
-      <div class="card" id="sim-params" style="flex:1">
-        <div class="card-header"><span class="card-title">Parâmetros</span></div>
-        <div style="padding:14px" id="sim-params-body">
-          <div style="font-size:11px;color:var(--muted);text-align:center;padding:20px 0">Selecione o tipo de simulação</div>
-        </div>
-      </div>
+    <!-- LEFT MINI TOOLBAR -->
+    <div style="width:40px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:6px;flex-shrink:0">
+      ${[['✏️','Editar'],['👁️','Vista'],['🔄','Reset'],['📏','Medidas'],['💾','Guardar'],['↩','Desfazer']].map(([ic,tt])=>`
+      <div title="${tt}" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;font-size:14px;transition:background .15s" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''">${ic}</div>`).join('')}
     </div>
 
-    <!-- CENTER CANVAS -->
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div class="card" style="flex:1;display:flex;flex-direction:column">
-        <!-- VIEW TOOLBAR -->
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border)">
-          <div style="display:flex;gap:4px" id="view-btns">
-            ${['Anterior','Lateral D','Lateral E','Posterior'].map((v,i)=>`
-            <button id="view-btn-${i}" onclick="setView(${i})" class="btn btn-ghost btn-sm" style="font-size:10px;padding:4px 9px;${i===0?'background:var(--s3);color:var(--text)':''}">${v}</button>`).join('')}
-          </div>
-          <div style="flex:1"></div>
-          <button id="compare-btn" class="btn btn-ghost btn-sm" style="font-size:10px" onclick="toggleCompare()">◑ Antes/Depois</button>
-          <span style="font-size:10px;color:var(--muted);font-family:var(--mono)" id="sim-mode-label">AGUARDA TIPO</span>
-        </div>
+    <!-- CENTER: 3D VIEWPORT -->
+    <div style="flex:1;position:relative;background:#1a1a2e;overflow:hidden;display:flex;align-items:center;justify-content:center" id="sim-viewport">
 
-        <!-- VIEWPORT -->
-        <div style="flex:1;position:relative;background:linear-gradient(135deg,var(--s2) 0%,var(--bg) 100%);overflow:hidden;display:flex;align-items:center;justify-content:center" id="sim-viewport">
+      <!-- BODY MODEL -->
+      <div id="body-3d-wrap" style="position:relative;user-select:none;cursor:grab"
+           onmousedown="simDragStart(event)" onmousemove="simDragMove(event)" onmouseup="simDragEnd()" onmouseleave="simDragEnd()">
+        <div id="body-canvas" style="position:relative"></div>
+      </div>
 
-          <!-- IDLE STATE -->
-          <div id="idle-state" style="text-align:center;padding:40px;opacity:.6">
-            <div style="font-size:48px;margin-bottom:12px">🫁</div>
-            <div style="font-size:13px;font-weight:500">Selecione o tipo de simulação</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:6px">Use os controlos à esquerda</div>
-          </div>
+      <!-- BEFORE/AFTER LABELS -->
+      <div id="sim-before-label" style="position:absolute;bottom:50px;left:20px;display:none">
+        <button onclick="toggleBeforeAfter()" id="ba-btn" style="background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:11px;font-family:var(--mono)">
+          ◑ ANTES / DEPOIS
+        </button>
+      </div>
 
-          <!-- SVG MODEL (hidden initially) -->
-          <div id="model-state" style="display:none;width:100%;height:100%;position:relative;display:none">
-            <div id="sim3d-shell" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:grab" 
-                 onmousedown="startDrag(event)" onmousemove="onDrag(event)" onmouseup="stopDrag()" onmouseleave="stopDrag()">
-              <div id="body-svg-wrap" style="transform-origin:center;transition:transform .05s"></div>
-            </div>
+      <!-- VIEW ANGLES bottom bar -->
+      <div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px">
+        ${[['↑','Superior'],['←','Esq'],['⊙','Frontal'],['→','Dir'],['↓','Inferior']].map(([ic,lb],i)=>`
+        <button onclick="setAngle(${i})" title="${lb}" style="width:28px;height:28px;background:rgba(0,0,0,.5);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.15);border-radius:6px;cursor:pointer;font-size:11px">${ic}</button>`).join('')}
+      </div>
 
-            <!-- COMPARE DIVIDER -->
-            <div id="compare-overlay" style="display:none;position:absolute;inset:0;pointer-events:none">
-              <div id="before-panel" style="position:absolute;inset:0;overflow:hidden;clip-path:inset(0 50% 0 0)">
-                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
-                  <div id="before-svg-wrap"></div>
-                </div>
-                <div style="position:absolute;top:10px;left:12px;background:rgba(0,0,0,.45);color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-family:var(--mono)">ANTES</div>
-              </div>
-              <div id="after-panel" style="position:absolute;inset:0;overflow:hidden;clip-path:inset(0 0 0 50%)">
-                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
-                  <div id="after-svg-wrap"></div>
-                </div>
-                <div style="position:absolute;top:10px;right:12px;background:rgba(167,139,250,.5);color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-family:var(--mono)">DEPOIS</div>
-              </div>
-              <div id="compare-divider" style="position:absolute;top:0;bottom:0;left:50%;width:3px;background:white;opacity:.8;cursor:ew-resize;pointer-events:all"
-                   onmousedown="startCompareDrag(event)"></div>
-            </div>
-
-            <!-- GENERATING OVERLAY -->
-            <div id="gen-overlay" style="display:none;position:absolute;inset:0;background:rgba(7,9,15,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px">
-              <div style="width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--sim);border-radius:50%;animation:spin 1s linear infinite"></div>
-              <div style="font-size:13px;font-weight:500">A processar modelo...</div>
-              <div style="width:220px;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
-                <div id="gen-bar" style="height:100%;width:0%;background:var(--sim);transition:width .4s;border-radius:2px"></div>
-              </div>
-              <div id="gen-step" style="font-size:10px;color:var(--muted);font-family:var(--mono)">Iniciando...</div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- BOTTOM BAR -->
-        <div style="padding:10px 14px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--border)">
-          <button class="btn btn-ghost btn-sm" onclick="resetSim()">↩ Reset</button>
-          <span style="font-size:10px;color:var(--muted)">Zoom</span>
-          <input type="range" min="60" max="180" value="100" style="width:120px;accent-color:var(--sim)" id="zoom-slider">
-          <span id="zoom-val" style="font-size:10px;font-family:var(--mono);color:var(--muted);min-width:30px">100%</span>
-          <div style="flex:1"></div>
-          <button class="btn btn-ghost btn-sm" onclick="App.navigate('prontuario')">📋 Vincular prontuário</button>
-        </div>
+      <!-- IMPLANT POSITION INDICATOR -->
+      <div id="implant-pos-badge" style="display:none;position:absolute;bottom:12px;right:12px;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.3);color:var(--sim);font-size:9px;font-family:var(--mono);padding:4px 10px;border-radius:6px">
+        POSIÇÃO DO IMPLANTE
       </div>
     </div>
 
     <!-- RIGHT PANEL -->
-    <div style="display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+    <div style="width:260px;background:var(--bg);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0">
 
-      <!-- NOTES -->
-      <div class="card">
-        <div class="card-header"><span class="card-title">Notas</span></div>
-        <div style="padding:12px">
-          <textarea class="input textarea" placeholder="Anotações desta simulação..." style="font-size:11px;min-height:90px"></textarea>
-        </div>
+      <!-- TABS -->
+      <div style="display:flex;border-bottom:1px solid var(--border)">
+        <button onclick="setSimTab('proc')" id="simtab-proc" style="flex:1;padding:10px;font-size:11px;font-weight:600;border:none;background:var(--s2);color:var(--text);cursor:pointer;border-bottom:2px solid var(--sim)">Procedimentos</button>
+        <button onclick="setSimTab('tools')" id="simtab-tools" style="flex:1;padding:10px;font-size:11px;color:var(--muted);border:none;background:transparent;cursor:pointer">Ferramentas</button>
       </div>
 
-      <!-- SHARE -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Partilha com paciente</span>
-          <span id="sim-share-badge" style="font-size:10px;padding:2px 9px;border-radius:20px;font-weight:600;background:rgba(248,113,113,.12);color:var(--danger);font-family:var(--mono)">● PRIVADA</span>
-        </div>
-        <div style="padding:14px">
-          <div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);border-radius:10px;padding:11px;margin-bottom:14px;font-size:11px;color:#fbbf24;line-height:1.6">
-            ⚖️ <strong>Aviso legal:</strong> Simulação é representação artística, não garantia de resultado.
+      <div id="sim-panel-proc" style="flex:1">
+
+        <!-- AUMENTO PRIMÁRIO -->
+        <div id="section-augment" style="border-bottom:1px solid var(--border)">
+          <div onclick="toggleSection('augment')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;background:var(--s2)">
+            <span style="font-size:12px;font-weight:600">Aumento primário</span>
+            <span id="aug-arrow" style="color:var(--muted);font-size:12px">−</span>
           </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;background:var(--s2);border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid var(--border)">
+          <div id="aug-body" style="padding:14px;display:flex;flex-direction:column;gap:12px">
+
+            <!-- TYPE ICONS -->
+            <div style="display:flex;align-items:center;gap:6px">
+              ${[['round','⬤','Redondo'],['oval','⬭','Anatómico'],['teardrop','▽','Teardrop']].map(([k,ic,lb])=>`
+              <div id="fmt-${k}" onclick="setImplantParam('formato','${k}')" title="${lb}" style="flex:1;height:36px;border:1.5px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all .15s" onmouseover="this.style.borderColor='var(--sim)'" onmouseout="refreshFmtStyle()">${ic}</div>`).join('')}
+              <button onclick="openCatalog()" style="flex:1;height:36px;border:1.5px solid var(--border);border-radius:8px;font-size:9px;font-weight:600;color:var(--muted);background:transparent;cursor:pointer;letter-spacing:.5px">📋 Catálogo</button>
+            </div>
+
+            <!-- VOLUME -->
             <div>
-              <div style="font-size:12px;font-weight:600" id="sim-toggle-label">Visível ao paciente</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px" id="sim-toggle-sub">Activar para partilhar</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <span style="font-size:11px;color:var(--muted)">Volume</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button onclick="adjustParam('volume',-25)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">−</button>
+                  <span style="font-size:13px;font-weight:600;min-width:60px;text-align:center;font-family:var(--mono)" id="vol-display">250 cc</span>
+                  <button onclick="adjustParam('volume',25)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">+</button>
+                </div>
+              </div>
+              <input type="range" min="100" max="800" step="25" value="250" style="width:100%;accent-color:var(--sim)" id="vol-slider" oninput="setParamSlider('volume',this.value)">
             </div>
-            <div id="sim-toggle" onclick="toggleSimShare()" style="width:44px;height:24px;border-radius:12px;background:var(--border);cursor:pointer;position:relative;transition:background .3s;flex-shrink:0">
-              <div id="sim-toggle-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:white;transition:transform .3s"></div>
+
+            <!-- DIÂMETRO -->
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <span style="font-size:11px;color:var(--muted)">Diâmetro</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button onclick="adjustParam('diametro',-0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;font-size:14px">−</button>
+                  <span style="font-size:13px;font-weight:600;min-width:60px;text-align:center;font-family:var(--mono)" id="diam-display">11,5 cm</span>
+                  <button onclick="adjustParam('diametro',0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;font-size:14px">+</button>
+                </div>
+              </div>
+              <input type="range" min="8" max="16" step="0.5" value="11.5" style="width:100%;accent-color:var(--sim)" id="diam-slider" oninput="setParamSlider('diametro',this.value)">
             </div>
-          </div>
-          <div id="sim-share-actions" style="display:none;flex-direction:column;gap:7px">
-            ${['📱 WhatsApp','✉️ Email','🔗 Copiar link'].map(ch=>`
-            <button class="btn btn-ghost btn-sm" onclick="showSimNotify('${ch}')" style="justify-content:flex-start;font-size:11px">${ch}</button>`).join('')}
-          </div>
-          <div id="sim-private-msg" style="font-size:11px;color:var(--muted);text-align:center;padding:8px 0">
-            Active a partilha para enviar ao paciente
+
+            <!-- ALTURA -->
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <span style="font-size:11px;color:var(--muted)">Altura</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button onclick="adjustParam('altura',-0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;font-size:14px">−</button>
+                  <span style="font-size:13px;font-weight:600;min-width:60px;text-align:center;font-family:var(--mono)" id="alt-display">9,0 cm</span>
+                  <button onclick="adjustParam('altura',0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;font-size:14px">+</button>
+                </div>
+              </div>
+              <input type="range" min="6" max="14" step="0.5" value="9" style="width:100%;accent-color:var(--sim)" id="alt-slider" oninput="setParamSlider('altura',this.value)">
+            </div>
+
+            <!-- FORMATO / PERFIL row -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <!-- FORMATO -->
+              <div>
+                <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Formato</div>
+                <div style="display:flex;gap:4px">
+                  ${[['D','round','Redondo'],['○','oval','Oval'],['▽','teardrop','Teardrop']].map(([ic,k,lb])=>`
+                  <div id="fmtico-${k}" onclick="setImplantParam('formato','${k}')" title="${lb}" style="flex:1;height:28px;border:1.5px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);transition:all .15s">${ic}</div>`).join('')}
+                </div>
+              </div>
+              <!-- PERFIL -->
+              <div>
+                <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Perfil</div>
+                <div style="display:flex;gap:4px">
+                  ${[['L','low','Baixo'],['M','mod','Moderado'],['H','high','Alto'],['XH','xhigh','Extra alto']].map(([ic,k,lb])=>`
+                  <div id="perfil-${k}" onclick="setImplantParam('perfil','${k}')" title="${lb}" style="flex:1;height:28px;border:1.5px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;font-weight:700;color:var(--muted);transition:all .15s">${ic}</div>`).join('')}
+                </div>
+              </div>
+            </div>
+
+            <!-- MÉTODO -->
+            <div>
+              <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Método</div>
+              <div style="display:flex;gap:6px">
+                ${[['sub','🫁','Submuscular'],['subg','💊','Subglandular'],['dual','⚡','Dual plane']].map(([k,ic,lb])=>`
+                <div id="met-${k}" onclick="setImplantParam('metodo','${k}')" title="${lb}" style="flex:1;height:32px;border:1.5px solid var(--border);border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:1px;transition:all .15s">
+                  <span style="font-size:12px">${ic}</span>
+                  <span style="font-size:8px;color:var(--muted)">${lb.split(' ')[0]}</span>
+                </div>`).join('')}
+              </div>
+            </div>
+
+            <!-- SIMÉTRICO toggle -->
+            <div style="display:flex;align-items:center;justify-content:space-between;background:var(--s2);border-radius:8px;padding:9px 11px">
+              <span style="font-size:11px">Simétrico</span>
+              <div id="sym-toggle" onclick="toggleSymmetry()" style="width:38px;height:20px;border-radius:10px;background:var(--sim);cursor:pointer;position:relative;transition:background .2s">
+                <div id="sym-thumb" style="position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:white;transition:transform .2s;transform:translateX(18px)"></div>
+              </div>
+            </div>
+
           </div>
         </div>
+
+        <!-- MASTOPEXIA -->
+        <div style="border-bottom:1px solid var(--border)">
+          <div onclick="toggleSection('masto')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer">
+            <span style="font-size:12px;font-weight:500">Mastopexia</span>
+            <span id="masto-arrow" style="color:var(--muted);font-size:12px">+</span>
+          </div>
+          <div id="masto-body" style="display:none;padding:12px;font-size:11px;color:var(--muted)">
+            Ptose grau I / II / III
+          </div>
+        </div>
+
+        <!-- REDUÇÃO -->
+        <div style="border-bottom:1px solid var(--border)">
+          <div onclick="toggleSection('redu')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer">
+            <span style="font-size:12px;font-weight:500">Redução</span>
+            <span id="redu-arrow" style="color:var(--muted);font-size:12px">+</span>
+          </div>
+          <div id="redu-body" style="display:none;padding:12px;font-size:11px;color:var(--muted)">Tecido a remover (g)</div>
+        </div>
+
+        <!-- TROCA DE PRÓTESE -->
+        <div style="border-bottom:1px solid var(--border)">
+          <div onclick="toggleSection('troca')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer">
+            <span style="font-size:12px;font-weight:500">Troca de prótese</span>
+            <span id="troca-arrow" style="color:var(--muted);font-size:12px">+</span>
+          </div>
+          <div id="troca-body" style="display:none;padding:12px;font-size:11px;color:var(--muted)">Remover implante existente</div>
+        </div>
+
+        <!-- LIPOFILLING -->
+        <div>
+          <div onclick="toggleSection('lipo')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer">
+            <span style="font-size:12px;font-weight:500">Lipofilling</span>
+            <span id="lipo-arrow" style="color:var(--muted);font-size:12px">+</span>
+          </div>
+          <div id="lipo-body" style="display:none;padding:12px;font-size:11px;color:var(--muted)">Volume de gordura (cc)</div>
+        </div>
+
       </div>
 
-      <!-- HISTORY -->
-      <div class="card" style="flex:1">
-        <div class="card-header"><span class="card-title">Histórico</span></div>
-        <div style="padding:12px;display:flex;flex-direction:column;gap:8px" id="sim-history">
-          ${AppData.patients.slice(0,3).map(p=>`
-          <div onclick="loadPatientSim('${p.id}')" style="background:var(--s2);border-radius:9px;padding:10px;cursor:pointer;border:1px solid var(--border);transition:border-color .2s" onmouseover="this.style.borderColor='var(--sim)'" onmouseout="this.style.borderColor='var(--border)'">
-            <div style="font-size:11px;font-weight:600">${p.name}</div>
-            <div style="font-size:10px;color:var(--muted)">${p.procedure} · ${p.simType==='breast'?'🫁 Mama':p.simType==='face'?'👤 Rosto':'🏃 Corpo'}</div>
-          </div>`).join('')}
-        </div>
+      <!-- TOOLS TAB -->
+      <div id="sim-panel-tools" style="display:none;padding:14px;font-size:11px;color:var(--muted)">
+        Ferramentas de medição em breve
       </div>
 
     </div>
   </div>
+
+  <!-- CATALOG MODAL -->
+  <div id="catalog-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center">
+    <div style="background:var(--bg);border-radius:14px;width:560px;max-height:80vh;display:flex;flex-direction:column;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
+        <span style="font-size:14px;font-weight:600">Catálogo de Implantes</span>
+        <button onclick="closeCatalog()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px">×</button>
+      </div>
+      <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">
+        <input class="input" placeholder="Pesquisar implante..." style="flex:1;font-size:12px" id="catalog-search" oninput="filterCatalog(this.value)">
+        <select class="input select" style="width:120px;font-size:11px" id="catalog-brand" onchange="filterCatalog()">
+          <option value="">Todas marcas</option>
+          <option value="Mentor">Mentor</option>
+          <option value="Allergan">Allergan</option>
+          <option value="Sientra">Sientra</option>
+          <option value="Sebbin">Sebbin</option>
+        </select>
+      </div>
+      <div id="catalog-list" style="overflow-y:auto;padding:12px 18px;display:flex;flex-direction:column;gap:8px"></div>
+      <div style="padding:12px 18px;border-top:1px solid var(--border);font-size:10px;color:var(--muted)">
+        <span id="catalog-count">0 resultados</span>
+      </div>
+    </div>
+  </div>
 </div>`;
+
+// ─── IMPLANT CATALOG DATA ──────────────────────────
+const IMPLANT_CATALOG = [
+  {brand:'Mentor',name:'Mentor Smooth Round Moderate',code:'350-1001',vol:250,diam:11.5,proj:3.5,perfil:'mod',formato:'round'},
+  {brand:'Mentor',name:'Mentor Smooth Round Moderate Plus',code:'350-1007',vol:300,diam:12.0,proj:3.8,perfil:'mod',formato:'round'},
+  {brand:'Mentor',name:'Mentor Smooth Round High Profile',code:'350-1231',vol:350,diam:11.0,proj:4.5,perfil:'high',formato:'round'},
+  {brand:'Mentor',name:'Mentor MemoryGel Xtra High',code:'MXHP-130',vol:400,diam:12.5,proj:5.0,perfil:'xhigh',formato:'round'},
+  {brand:'Allergan',name:'Allergan Natrelle Round Moderate',code:'NRM-250',vol:250,diam:11.3,proj:3.4,perfil:'mod',formato:'round'},
+  {brand:'Allergan',name:'Allergan Natrelle Round High',code:'NRH-325',vol:325,diam:11.0,proj:4.3,perfil:'high',formato:'round'},
+  {brand:'Allergan',name:'Allergan Inspira Soft Touch',code:'IST-300',vol:300,diam:12.2,proj:3.9,perfil:'mod',formato:'round'},
+  {brand:'Allergan',name:'Allergan 410 Anatomic FF',code:'410FF-335',vol:335,diam:12.0,proj:4.2,perfil:'high',formato:'teardrop'},
+  {brand:'Sientra',name:'Sientra HSC+ Round Moderate Plus',code:'HSCRMP-270',vol:270,diam:11.8,proj:3.7,perfil:'mod',formato:'round'},
+  {brand:'Sientra',name:'Sientra HSC+ Shaped Full',code:'HSCSSF-295',vol:295,diam:11.5,proj:4.1,perfil:'high',formato:'teardrop'},
+  {brand:'Sebbin',name:'Sebbin BioCell Round Moderate',code:'SCL-260',vol:260,diam:11.4,proj:3.5,perfil:'mod',formato:'round'},
+  {brand:'Sebbin',name:'Sebbin BioCell Anatomic',code:'SBA-310',vol:310,diam:11.9,proj:4.0,perfil:'high',formato:'teardrop'},
+];
 
 PageInit.simulator = () => {
   // ─── STATE ───────────────────────────────────────
-  let currentType = null;
-  let params = {};
-  let view = 0;             // 0=front,1=right,2=left,3=back
-  let comparing = false;
-  let zoomLevel = 100;
-  let dragStart = null, rotX = 0, rotY = 0;
-  let compareDragging = false;
+  let params = { volume:250, diametro:11.5, altura:9.0, formato:'round', perfil:'mod', metodo:'sub', simetrico:true };
+  let showBefore = false;
+  let dragState = null;
+  let rotY = 0;
 
-  // ─── SVG GENERATORS ──────────────────────────────
+  // ─── RENDER BODY ─────────────────────────────────
+  function renderBreast() {
+    const canvas = document.getElementById('body-canvas');
+    if (!canvas) return;
 
-  function svgBreast(p, angle) {
-    const vol  = p.volume  || 400;  // 150-800cc
-    const proj = p.proj    || 60;   // 0-100
-    const asym = p.asym    || 50;   // 0-100 (50=symmetric)
-    const pos  = p.pos     || 50;   // placement 0-100
-    const flip = angle > 90 && angle < 270;
+    const vol   = params.volume;
+    const diam  = params.diametro;
+    const perf  = params.perfil;
+    const fmt   = params.formato;
+    const meto  = params.metodo;
 
-    const bodyFill  = 'rgba(52,211,153,.07)';
-    const bodyStroke= 'var(--sim)';
-    const implFill  = `rgba(167,139,250,${0.15 + proj/500})`;
-    const implStroke= 'var(--sim)';
+    // Scale breast size from volume
+    const scale = 0.7 + (vol / 800) * 1.0;
+    const baseRx = 38 * scale;
+    const baseRy = fmt === 'teardrop' ? baseRx * 0.85 : baseRx * 0.88;
+    // Profile affects projection (vertical)
+    const projMult = {low:0.75, mod:1.0, high:1.25, xhigh:1.4}[perf] || 1.0;
+    const ry = baseRy * projMult;
+    // Method affects position
+    const posYOffset = meto === 'sub' ? 4 : 0;
 
-    const baseR = 18 + vol/40;
-    const rL = baseR + (asym - 50)/10;
-    const rR = baseR - (asym - 50)/10;
-    const projY = 6 + proj/14;
-    const posY  = 115 + (pos - 50)/5;
+    const cx = 200; // canvas center
+    // Breast centers
+    const bL = {cx: cx - 52, cy: 165 + posYOffset, rx: baseRx, ry};
+    const bR = {cx: cx + 52, cy: 165 + posYOffset, rx: params.simetrico ? baseRx : baseRx*0.95, ry: params.simetrico ? ry : ry*0.97};
 
-    const svgH = 280;
-    return `<svg viewBox="0 0 180 ${svgH}" width="180" height="${svgH}" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <!-- Body outline -->
-      <path d="M55,30 Q90,10 125,30 L135,90 Q130,150 120,200 L110,${svgH-10} L70,${svgH-10} L60,200 Q50,150 45,90 Z"
-            fill="${bodyFill}" stroke="${bodyStroke}" stroke-width="1"/>
+    // Skin tone gradient
+    const skinBase = showBefore ? 'rgba(210,168,130,.9)' : 'rgba(210,168,130,.95)';
+    const implantFill = showBefore ? 'rgba(210,168,130,.95)' : `rgba(210,168,130,1)`;
+    const implantHighlight = 'rgba(255,220,180,.35)';
+    const shadowFill = 'rgba(100,60,30,.25)';
+
+    // Teardrop path helper
+    function teardropPath(cx, cy, rx, ry) {
+      const top = cy - ry * 0.6;
+      const bot = cy + ry * 0.55;
+      return `M ${cx},${top} 
+              C ${cx+rx},${top} ${cx+rx*1.1},${cy} ${cx+rx*0.95},${bot} 
+              C ${cx+rx*0.5},${bot+ry*0.15} ${cx-rx*0.5},${bot+ry*0.15} ${cx-rx*0.95},${bot} 
+              C ${cx-rx*1.1},${cy} ${cx-rx},${top} ${cx},${top} Z`;
+    }
+
+    function breastPath(b) {
+      if (fmt === 'teardrop') return teardropPath(b.cx, b.cy, b.rx, b.ry);
+      return `M ${b.cx},${b.cy-b.ry} 
+              C ${b.cx+b.rx*1.1},${b.cy-b.ry} ${b.cx+b.rx},${b.cy+b.ry*0.5} ${b.cx+b.rx*0.8},${b.cy+b.ry*0.65}
+              C ${b.cx+b.rx*0.4},${b.cy+b.ry*0.95} ${b.cx-b.rx*0.4},${b.cy+b.ry*0.95} ${b.cx-b.rx*0.8},${b.cy+b.ry*0.65}
+              C ${b.cx-b.rx},${b.cy+b.ry*0.5} ${b.cx-b.rx*1.1},${b.cy-b.ry} ${b.cx},${b.cy-b.ry} Z`;
+    }
+
+    const svgH = 420;
+    const svgW = 400;
+
+    canvas.innerHTML = `
+    <svg viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="skinGrad" cx="45%" cy="35%" r="60%">
+          <stop offset="0%" stop-color="rgba(240,195,155,1)"/>
+          <stop offset="70%" stop-color="${skinBase}"/>
+          <stop offset="100%" stop-color="rgba(175,120,85,.9)"/>
+        </radialGradient>
+        <radialGradient id="breastGradL" cx="35%" cy="30%" r="65%">
+          <stop offset="0%" stop-color="rgba(245,205,165,1)"/>
+          <stop offset="60%" stop-color="${implantFill}"/>
+          <stop offset="100%" stop-color="rgba(170,115,80,.95)"/>
+        </radialGradient>
+        <radialGradient id="breastGradR" cx="65%" cy="30%" r="65%">
+          <stop offset="0%" stop-color="rgba(245,205,165,1)"/>
+          <stop offset="60%" stop-color="${implantFill}"/>
+          <stop offset="100%" stop-color="rgba(170,115,80,.95)"/>
+        </radialGradient>
+        <radialGradient id="highlightL" cx="40%" cy="25%" r="40%">
+          <stop offset="0%" stop-color="${implantHighlight}"/>
+          <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+        </radialGradient>
+        <radialGradient id="highlightR" cx="60%" cy="25%" r="40%">
+          <stop offset="0%" stop-color="${implantHighlight}"/>
+          <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+        </radialGradient>
+        <filter id="blur2"><feGaussianBlur stdDeviation="2"/></filter>
+        <filter id="blur4"><feGaussianBlur stdDeviation="4"/></filter>
+        <clipPath id="bodyClip">
+          <path d="M 90,0 Q ${svgW/2},0 ${svgW-90},0 L ${svgW-60},${svgH} L 60,${svgH} Z"/>
+        </clipPath>
+      </defs>
+
+      <!-- BODY TORSO -->
       <!-- Neck -->
-      <rect x="75" y="8" width="30" height="28" rx="14" fill="${bodyFill}" stroke="${bodyStroke}" stroke-width="1"/>
-      <!-- Head -->
-      <ellipse cx="90" cy="0" rx="22" ry="18" fill="${bodyFill}" stroke="${bodyStroke}" stroke-width="1" opacity=".5"/>
-      <!-- Waist lines -->
-      <path d="M50,160 Q90,155 130,160" stroke="${bodyStroke}" stroke-width=".7" opacity=".3"/>
-      <!-- Left implant -->
-      <ellipse cx="${flip?112:68}" cy="${posY}" rx="${rL}" ry="${rL*0.7+projY}" fill="${implFill}" stroke="${implStroke}" stroke-width="1.5" opacity=".9"/>
-      <!-- Right implant -->
-      <ellipse cx="${flip?68:112}" cy="${posY}" rx="${rR}" ry="${rR*0.7+projY}" fill="${implFill}" stroke="${implStroke}" stroke-width="1.5" opacity=".9"/>
-      <!-- Measurement guides -->
-      <line x1="68" y1="${posY-rL-4}" x2="112" y2="${posY-rR-4}" stroke="${bodyStroke}" stroke-width=".6" stroke-dasharray="3,3" opacity=".4"/>
-      <text x="88" y="${posY-rL-8}" font-size="8" fill="var(--sim)" text-anchor="middle" font-family="var(--mono)" opacity=".8">${vol}cc</text>
-      <!-- Incision indicator -->
-      <path d="M${flip?112:68},${posY+rL+2} Q90,${posY+Math.max(rL,rR)+8} ${flip?68:112},${posY+rR+2}"
-            stroke="rgba(248,113,113,.5)" stroke-width="1" stroke-dasharray="2,2"/>
-      <!-- Rotation hint -->
-      <text x="90" y="${svgH-4}" font-size="7" fill="var(--muted)" text-anchor="middle" font-family="var(--mono)" opacity=".5">⟵ ARRASTAR PARA RODAR ⟶</text>
+      <path d="M ${cx-22},0 Q ${cx-18},0 ${cx-16},20 L ${cx+16},20 Q ${cx+18},0 ${cx+22},0 Z" fill="url(#skinGrad)"/>
+      <!-- Shoulder left -->
+      <path d="M 0,80 Q 40,60 ${cx-60},95 Q ${cx-75},110 ${cx-70},130 L ${cx-62},130 Q ${cx-65},110 ${cx-55},98 Q 45,70 10,88 Z" fill="url(#skinGrad)"/>
+      <!-- Shoulder right -->
+      <path d="M ${svgW},80 Q ${svgW-40},60 ${cx+60},95 Q ${cx+75},110 ${cx+70},130 L ${cx+62},130 Q ${cx+65},110 ${cx+55},98 Q ${svgW-45},70 ${svgW-10},88 Z" fill="url(#skinGrad)"/>
+
+      <!-- TORSO MAIN -->
+      <path d="M ${cx-16},20 
+               Q ${cx-14},18 ${cx},18 Q ${cx+14},18 ${cx+16},20
+               Q ${cx+55},28 ${cx+72},55
+               Q ${cx+95},80 ${cx+95},120
+               L ${cx+88},${svgH-20}
+               Q ${cx+50},${svgH} ${cx},${svgH}
+               Q ${cx-50},${svgH} ${cx-88},${svgH-20}
+               L ${cx-95},120
+               Q ${cx-95},80 ${cx-72},55
+               Q ${cx-55},28 ${cx-16},20 Z"
+            fill="url(#skinGrad)"/>
+
+      <!-- STERNUM shadow -->
+      <path d="M ${cx},45 Q ${cx+3},110 ${cx+2},${bL.cy+bL.ry+10}" stroke="rgba(140,90,55,.2)" stroke-width="1.5" fill="none" filter="url(#blur2)"/>
+
+      <!-- BREAST SHADOWS (under) -->
+      <ellipse cx="${bL.cx+5}" cy="${bL.cy+bL.ry-2}" rx="${bL.rx*0.8}" ry="8" fill="${shadowFill}" filter="url(#blur4)" opacity="${0.5+scale*0.2}"/>
+      <ellipse cx="${bR.cx-5}" cy="${bR.cy+bR.ry-2}" rx="${bR.rx*0.8}" ry="8" fill="${shadowFill}" filter="url(#blur4)" opacity="${0.5+scale*0.2}"/>
+
+      <!-- BREASTS -->
+      <path d="${breastPath(bL)}" fill="url(#breastGradL)" opacity="${showBefore ? 0.7 : 1}"/>
+      <path d="${breastPath(bR)}" fill="url(#breastGradR)" opacity="${showBefore ? 0.7 : 1}"/>
+
+      <!-- BREAST HIGHLIGHTS -->
+      <path d="${breastPath(bL)}" fill="url(#highlightL)" opacity="${showBefore ? 0.3 : 0.6}"/>
+      <path d="${breastPath(bR)}" fill="url(#highlightR)" opacity="${showBefore ? 0.3 : 0.6}"/>
+
+      <!-- NIPPLES -->
+      <circle cx="${bL.cx-3}" cy="${bL.cy+bL.ry*0.12}" r="${3.5+scale}" fill="rgba(170,100,70,.7)"/>
+      <circle cx="${bR.cx+3}" cy="${bR.cy+bR.ry*0.12}" r="${3.5+scale}" fill="rgba(170,100,70,.7)"/>
+      <circle cx="${bL.cx-3}" cy="${bL.cy+bL.ry*0.12}" r="${1.8+scale*0.5}" fill="rgba(140,75,55,.8)"/>
+      <circle cx="${bR.cx+3}" cy="${bR.cy+bR.ry*0.12}" r="${1.8+scale*0.5}" fill="rgba(140,75,55,.8)"/>
+
+      <!-- COLLARBONE hint -->
+      <path d="M ${cx-16},22 Q ${cx-40},18 ${cx-65},30" stroke="rgba(160,110,75,.3)" stroke-width="1" fill="none"/>
+      <path d="M ${cx+16},22 Q ${cx+40},18 ${cx+65},30" stroke="rgba(160,110,75,.3)" stroke-width="1" fill="none"/>
+
+      <!-- BEFORE label overlay -->
+      ${showBefore ? `<rect x="0" y="0" width="${svgW}" height="${svgH}" fill="rgba(0,0,0,0)" />
+      <text x="${svgW/2}" y="30" font-size="10" fill="rgba(255,255,255,.5)" text-anchor="middle" font-family="var(--mono)">ANTES</text>` : ''}
+
+      <!-- Volume badge -->
+      ${!showBefore ? `<text x="${svgW/2}" y="${svgH-10}" font-size="9" fill="rgba(255,255,255,.3)" text-anchor="middle" font-family="var(--mono)">${vol}cc · Ø${diam}cm · ${['Submuscular','Subglandular','Dual Plane'][['sub','subg','dual'].indexOf(meto)]||'Submuscular'}</text>` : ''}
     </svg>`;
+
+    // Show implant position badge
+    const badge = document.getElementById('implant-pos-badge');
+    if (badge) badge.style.display = !showBefore ? 'block' : 'none';
+
+    // Show before/after button once model is loaded
+    const baBtn = document.getElementById('sim-before-label');
+    if (baBtn) baBtn.style.display = 'block';
   }
 
-  function svgFace(p, angle) {
-    const dorso = p.dorso || 40;   // 0-100
-    const ponta = p.ponta || 55;   // 0-100
-    const larg  = p.larg  || 50;   // 0-100
-    const labio = p.labio || 30;   // 0-100
-    const queixo= p.queixo|| 50;   // 0-100
+  // ─── PARAM CONTROLS ──────────────────────────────
+  window.adjustParam = function(key, delta) {
+    if (key === 'volume')   { params.volume   = Math.max(100, Math.min(800, params.volume + delta)); document.getElementById('vol-slider').value = params.volume; document.getElementById('vol-display').textContent = params.volume + ' cc'; }
+    if (key === 'diametro') { params.diametro = Math.max(8, Math.min(16, +(params.diametro + delta).toFixed(1))); document.getElementById('diam-slider').value = params.diametro; document.getElementById('diam-display').textContent = params.diametro.toString().replace('.',',') + ' cm'; }
+    if (key === 'altura')   { params.altura   = Math.max(6, Math.min(14, +(params.altura + delta).toFixed(1)));   document.getElementById('alt-slider').value  = params.altura;   document.getElementById('alt-display').textContent  = params.altura.toString().replace('.',',')   + ' cm'; }
+    renderBreast();
+  };
 
-    const isProfile = (angle > 45 && angle < 135) || (angle > 225 && angle < 315);
-    const flipP = angle > 135 && angle < 315;
+  window.setParamSlider = function(key, val) {
+    if (key === 'volume')   { params.volume   = +val; document.getElementById('vol-display').textContent  = val + ' cc'; }
+    if (key === 'diametro') { params.diametro = +val; document.getElementById('diam-display').textContent = (+val).toString().replace('.',',') + ' cm'; }
+    if (key === 'altura')   { params.altura   = +val; document.getElementById('alt-display').textContent  = (+val).toString().replace('.',',') + ' cm'; }
+    renderBreast();
+  };
 
-    if (isProfile) {
-      // Profile view
-      const noseH = 28 + dorso/10;
-      const tipX  = flipP ? 55 : 125;
-      const noseX = flipP ? 65 : 115;
-      return `<svg viewBox="0 0 180 280" width="180" height="280" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- Head profile -->
-        <path d="M90,20 Q${flipP?50:130},15 ${flipP?45:135},70 Q${flipP?40:140},110 ${flipP?50:130},150 Q${flipP?60:120},200 90,210 Q${flipP?80:100},220 90,230 L90,20 Z"
-              fill="rgba(52,211,153,.07)" stroke="var(--sim)" stroke-width="1.2"/>
-        <!-- Nose bridge -->
-        <path d="M90,70 Q${noseX},${70+noseH/2} ${tipX},${70+noseH}" 
-              fill="none" stroke="var(--sim)" stroke-width="2" stroke-linecap="round"/>
-        <!-- Nose tip highlight -->
-        <circle cx="${tipX}" cy="${70+noseH}" r="${4+ponta/25}" fill="rgba(167,139,250,.25)" stroke="var(--sim)" stroke-width="1.2"/>
-        <!-- Lips -->
-        <ellipse cx="90" cy="175" rx="${8+labio/12}" ry="${4+labio/30}" fill="rgba(167,139,250,.2)" stroke="var(--sim)" stroke-width="1"/>
-        <!-- Chin -->
-        <ellipse cx="90" cy="${200+queixo/15}" rx="12" ry="${5+queixo/20}" fill="rgba(167,139,250,.15)" stroke="var(--sim)" stroke-width="1" opacity=".7"/>
-        <text x="90" y="272" font-size="7" fill="var(--muted)" text-anchor="middle" font-family="var(--mono)" opacity=".5">PERFIL ${flipP?'ESQ':'DIR'}</text>
-      </svg>`;
-    }
+  window.setImplantParam = function(key, val) {
+    params[key] = val;
+    refreshSelectionStyles();
+    renderBreast();
+  };
 
-    // Front view
-    const noseW = 18 + larg/10;
-    const noseH2= 30 + dorso/8;
-    return `<svg viewBox="0 0 180 280" width="180" height="280" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <!-- Head -->
-      <ellipse cx="90" cy="100" rx="60" ry="75" fill="rgba(52,211,153,.07)" stroke="var(--sim)" stroke-width="1.2"/>
-      <!-- Eyes -->
-      <ellipse cx="68" cy="85" rx="10" ry="6" fill="rgba(52,211,153,.08)" stroke="var(--sim)" stroke-width="1"/>
-      <ellipse cx="112" cy="85" rx="10" ry="6" fill="rgba(52,211,153,.08)" stroke="var(--sim)" stroke-width="1"/>
-      <!-- Nose -->
-      <path d="M90,95 L${90-noseW/2},${95+noseH2} L${90+noseW/2},${95+noseH2}" 
-            fill="none" stroke="var(--sim)" stroke-width="1.2" stroke-linejoin="round"/>
-      <ellipse cx="90" cy="${95+noseH2}" rx="${noseW/2}" ry="${3+ponta/30}" fill="rgba(167,139,250,.2)" stroke="var(--sim)" stroke-width="1"/>
-      <!-- Lips -->
-      <path d="M${76},145 Q90,${140+labio/8} ${104},145 Q90,${155+labio/8} ${76},145" 
-            fill="rgba(167,139,250,.15)" stroke="var(--sim)" stroke-width="1.2"/>
-      <!-- Chin -->
-      <ellipse cx="90" cy="${165+queixo/15}" rx="18" ry="${6+queixo/20}" fill="rgba(167,139,250,.1)" stroke="var(--sim)" stroke-width=".8" opacity=".6"/>
-      <!-- Guide lines -->
-      <line x1="90" y1="30" x2="90" y2="175" stroke="var(--sim)" stroke-width=".5" stroke-dasharray="4,4" opacity=".3"/>
-      <text x="90" y="272" font-size="7" fill="var(--muted)" text-anchor="middle" font-family="var(--mono)" opacity=".5">FRONTAL · ROSTO</text>
-    </svg>`;
-  }
+  window.toggleSymmetry = function() {
+    params.simetrico = !params.simetrico;
+    const toggle = document.getElementById('sym-toggle');
+    const thumb  = document.getElementById('sym-thumb');
+    if (toggle) toggle.style.background = params.simetrico ? 'var(--sim)' : 'var(--border)';
+    if (thumb)  thumb.style.transform   = params.simetrico ? 'translateX(18px)' : 'translateX(0)';
+    renderBreast();
+  };
 
-  function svgBody(p, angle) {
-    const cintura = p.cintura || 60;  // 0-100
-    const quadril = p.quadril || 50;  // 0-100
-    const gluteo  = p.gluteo  || 40;  // 0-100
-    const abdom   = p.abdom   || 50;  // 0-100
-
-    const wCintura = 28 - cintura/8;
-    const wQuadril = 34 + quadril/8;
-    const glutRy   = 8 + gluteo/12;
-    const abdFill  = `rgba(52,211,153,${0.04 + abdom/1200})`;
-
-    return `<svg viewBox="0 0 180 300" width="180" height="300" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <!-- Body shape -->
-      <path d="M90,15 
-               Q${90+32},15 ${90+38},50 
-               L${90+wCintura},120
-               Q${90+wQuadril},150 ${90+wQuadril-4},175
-               L${90+20},290 L${90-20},290
-               L${90-wQuadril+4},175
-               Q${90-wQuadril},150 ${90-wCintura},120
-               L${90-38},50
-               Q${90-32},15 90,15 Z"
-            fill="${abdFill}" stroke="var(--sim)" stroke-width="1.2"/>
-      <!-- Head -->
-      <ellipse cx="90" cy="0" rx="22" ry="20" fill="rgba(52,211,153,.06)" stroke="var(--sim)" stroke-width="1" opacity=".7"/>
-      <!-- Waist marker -->
-      <line x1="${90-wCintura-5}" y1="120" x2="${90+wCintura+5}" y2="120" stroke="var(--sim)" stroke-width=".8" stroke-dasharray="3,3" opacity=".5"/>
-      <!-- Hip marker -->
-      <line x1="${90-wQuadril-4}" y1="162" x2="${90+wQuadril+4}" y2="162" stroke="var(--sim)" stroke-width=".8" stroke-dasharray="3,3" opacity=".5"/>
-      <!-- Gluteal highlight -->
-      <ellipse cx="${90-wQuadril/2-4}" cy="175" rx="16" ry="${glutRy}" fill="rgba(167,139,250,.18)" stroke="var(--sim)" stroke-width="1" opacity=".8"/>
-      <ellipse cx="${90+wQuadril/2+4}" cy="175" rx="16" ry="${glutRy}" fill="rgba(167,139,250,.18)" stroke="var(--sim)" stroke-width="1" opacity=".8"/>
-      <!-- Abdominal lines -->
-      ${abdom > 40 ? `
-      <line x1="${90-10}" y1="140" x2="${90+10}" y2="140" stroke="var(--sim)" stroke-width=".7" opacity="${abdom/200}"/>
-      <line x1="${90-12}" y1="155" x2="${90+12}" y2="155" stroke="var(--sim)" stroke-width=".7" opacity="${abdom/200}"/>
-      <line x1="90" y1="128" x2="90" y2="175" stroke="var(--sim)" stroke-width=".6" opacity="${abdom/250}"/>` : ''}
-      <!-- Measurements -->
-      <text x="8" y="124" font-size="8" fill="var(--sim)" text-anchor="start" font-family="var(--mono)" opacity=".7">${Math.round(65-cintura/4)}cm</text>
-      <text x="8" y="166" font-size="8" fill="var(--sim)" text-anchor="start" font-family="var(--mono)" opacity=".7">${Math.round(90+quadril/5)}cm</text>
-      <text x="90" y="295" font-size="7" fill="var(--muted)" text-anchor="middle" font-family="var(--mono)" opacity=".5">⟵ ARRASTAR PARA RODAR ⟶</text>
-    </svg>`;
-  }
-
-  // ─── RENDER MODEL ────────────────────────────────
-  function renderModel(showBefore) {
-    if (!currentType) return;
-    const wrap = showBefore
-      ? document.getElementById('before-svg-wrap')
-      : document.getElementById('body-svg-wrap');
-    if (!wrap) return;
-
-    const beforeParams = {}; // baseline = no modifications
-    const p = showBefore ? beforeParams : params;
-    const angle = ((rotY % 360) + 360) % 360;
-
-    let svg = '';
-    if (currentType === 'breast') svg = svgBreast(p, angle);
-    else if (currentType === 'face') svg = svgFace(p, angle);
-    else svg = svgBody(p, angle);
-
-    wrap.innerHTML = svg;
-    if (comparing) {
-      const aw = document.getElementById('after-svg-wrap');
-      if (aw) {
-        let svgA = '';
-        if (currentType === 'breast') svgA = svgBreast(params, angle);
-        else if (currentType === 'face') svgA = svgFace(params, angle);
-        else svgA = svgBody(params, angle);
-        aw.innerHTML = svgA;
-      }
-    }
-
-    // Apply zoom + rotation tilt
-    const shell = document.getElementById('sim3d-shell');
-    if (shell) shell.style.perspective = '600px';
-    wrap.style.transform = `scale(${zoomLevel/100}) rotateX(${rotX}deg)`;
-  }
-
-  // ─── SELECT TYPE ─────────────────────────────────
-  window.selectSimType = function(type) {
-    currentType = type;
-    params = {};
-
-    // Highlight selected
-    document.querySelectorAll('[id^="simtype-"]').forEach(el => {
-      el.style.borderColor = 'var(--border)';
-      el.style.background  = 'var(--s2)';
+  function refreshSelectionStyles() {
+    // Formato
+    ['round','oval','teardrop'].forEach(k => {
+      const el = document.getElementById('fmtico-'+k);
+      if (el) { el.style.borderColor = params.formato===k ? 'var(--sim)' : 'var(--border)'; el.style.color = params.formato===k ? 'var(--sim)' : 'var(--muted)'; el.style.background = params.formato===k ? 'rgba(167,139,250,.1)' : ''; }
+      const el2 = document.getElementById('fmt-'+k);
+      if (el2) { el2.style.borderColor = params.formato===k ? 'var(--sim)' : 'var(--border)'; el2.style.background = params.formato===k ? 'rgba(167,139,250,.1)' : ''; }
     });
-    const el = document.getElementById('simtype-'+type);
-    if (el) { el.style.borderColor = 'var(--sim)'; el.style.background = 'rgba(167,139,250,.08)'; }
+    // Perfil
+    ['low','mod','high','xhigh'].forEach(k => {
+      const el = document.getElementById('perfil-'+k);
+      if (el) { el.style.borderColor = params.perfil===k ? 'var(--sim)' : 'var(--border)'; el.style.color = params.perfil===k ? 'var(--sim)' : 'var(--muted)'; el.style.background = params.perfil===k ? 'rgba(167,139,250,.1)' : ''; }
+    });
+    // Método
+    ['sub','subg','dual'].forEach(k => {
+      const el = document.getElementById('met-'+k);
+      if (el) { el.style.borderColor = params.metodo===k ? 'var(--sim)' : 'var(--border)'; el.style.background = params.metodo===k ? 'rgba(167,139,250,.1)' : ''; }
+    });
+  }
+  window.refreshFmtStyle = refreshSelectionStyles;
 
-    // Build param sliders
-    const paramDefs = {
-      breast: [
-        ['volume', 'Volume implante (cc)', 150, 800, 400, 'cc'],
-        ['proj',   'Projecção',            0,   100,  60, '%'],
-        ['asym',   'Simetria',             0,   100,  50, '%'],
-        ['pos',    'Posição vertical',     0,   100,  50, '%'],
-      ],
-      face: [
-        ['dorso',  'Dorso nasal',    0, 100, 40, '%'],
-        ['ponta',  'Ponta nasal',    0, 100, 55, '%'],
-        ['larg',   'Largura nasal',  0, 100, 50, '%'],
-        ['labio',  'Volume lábios',  0, 100, 30, '%'],
-        ['queixo', 'Projecção queixo',0,100, 50, '%'],
-      ],
-      body: [
-        ['cintura', 'Cintura',           0, 100, 60, '%'],
-        ['quadril', 'Quadril',           0, 100, 50, '%'],
-        ['gluteo',  'Projecção glúteos', 0, 100, 40, '%'],
-        ['abdom',   'Definição abdominal',0,100, 50, '%'],
-      ],
-    };
-
-    const defs = paramDefs[type] || [];
-    defs.forEach(([key, , , , val]) => { params[key] = val; });
-
-    const pb = document.getElementById('sim-params-body');
-    if (pb) pb.innerHTML = defs.map(([key, label, min, max, val, unit]) => `
-      <div style="margin-bottom:14px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-          <span style="font-size:11px;color:var(--muted)">${label}</span>
-          <span style="font-size:10px;font-family:var(--mono);color:var(--sim)" id="pv-${key}">${val}${unit}</span>
-        </div>
-        <input type="range" min="${min}" max="${max}" value="${val}" style="width:100%;accent-color:var(--sim)"
-          oninput="updateParam('${key}',this.value,'${unit}')">
-      </div>`).join('');
-
-    // Show generate flow
-    generateModel();
-  };
-
-  window.updateParam = function(key, val, unit) {
-    params[key] = +val;
-    const lbl = document.getElementById('pv-'+key);
-    if (lbl) lbl.textContent = val + unit;
-    renderModel(false);
-  };
-
-  // ─── GENERATE ANIMATION ──────────────────────────
-  window.generateModel = function() {
-    const overlay = document.getElementById('gen-overlay');
-    const idle    = document.getElementById('idle-state');
-    const model   = document.getElementById('model-state');
-    if (overlay) { overlay.style.removeProperty('display'); overlay.style.display = 'flex'; }
-    if (idle)  idle.style.display  = 'none';
-    if (model) { model.style.removeProperty('display'); model.style.display = 'block'; }
-
-    const steps = ['Detectando pontos anatômicos...','Construindo geometria...','Calibrando proporções...','Aplicando parâmetros...','Modelo pronto ✓'];
-    let i = 0;
-    const iv = setInterval(() => {
-      const bar  = document.getElementById('gen-bar');
-      const step = document.getElementById('gen-step');
-      if (bar)  bar.style.width = ((i+1)*20) + '%';
-      if (step && steps[i]) step.textContent = steps[i];
-      i++;
-      if (i >= 5) {
-        clearInterval(iv);
-        setTimeout(() => {
-          if (overlay) overlay.style.display = 'none';
-          document.getElementById('sim-mode-label').textContent = 'MODELO 3D · INTERATIVO';
-          renderModel(false);
-        }, 400);
-      }
-    }, 500);
+  // ─── BEFORE / AFTER ──────────────────────────────
+  window.toggleBeforeAfter = function() {
+    showBefore = !showBefore;
+    const btn = document.getElementById('ba-btn');
+    if (btn) { btn.style.background = showBefore ? 'rgba(167,139,250,.3)' : 'rgba(0,0,0,.6)'; btn.textContent = showBefore ? '◑ A VER: ANTES' : '◑ ANTES / DEPOIS'; }
+    renderBreast();
   };
 
   // ─── DRAG TO ROTATE ──────────────────────────────
-  window.startDrag = function(e) { dragStart = { x: e.clientX, y: e.clientY, rx: rotX, ry: rotY }; };
-  window.onDrag    = function(e) {
-    if (!dragStart) return;
-    rotY = dragStart.ry + (e.clientX - dragStart.x) * 0.5;
-    rotX = Math.max(-30, Math.min(30, dragStart.rx - (e.clientY - dragStart.y) * 0.3));
-    renderModel(false);
+  window.simDragStart = function(e) { dragState = {x: e.clientX, ry: rotY}; document.getElementById('body-3d-wrap').style.cursor = 'grabbing'; };
+  window.simDragMove  = function(e) {
+    if (!dragState) return;
+    rotY = dragState.ry + (e.clientX - dragState.x) * 0.4;
+    const wrap = document.getElementById('body-canvas');
+    if (wrap) wrap.style.transform = `rotateY(${rotY}deg)`;
   };
-  window.stopDrag  = function() { dragStart = null; };
+  window.simDragEnd   = function() { dragState = null; document.getElementById('body-3d-wrap').style.cursor = 'grab'; };
 
-  // ─── VIEW BUTTONS ────────────────────────────────
-  window.setView = function(i) {
-    view = i;
-    document.querySelectorAll('[id^="view-btn-"]').forEach(el => { el.style.background=''; el.style.color='var(--muted)'; });
-    const btn = document.getElementById('view-btn-'+i);
-    if (btn) { btn.style.background = 'var(--s3)'; btn.style.color = 'var(--text)'; }
-    const angles = [0, 90, 270, 180];
+  // ─── SECTION TOGGLE ──────────────────────────────
+  window.toggleSection = function(key) {
+    const body  = document.getElementById(key+'-body');
+    const arrow = document.getElementById(key+'-arrow');
+    if (!body) return;
+    const open = body.style.display !== 'none';
+    body.style.display  = open ? 'none' : 'block';
+    if (arrow) arrow.textContent = open ? '+' : '−';
+  };
+
+  // ─── TABS ─────────────────────────────────────────
+  window.setSimTab = function(tab) {
+    document.getElementById('sim-panel-proc').style.display  = tab==='proc'  ? 'block' : 'none';
+    document.getElementById('sim-panel-tools').style.display = tab==='tools' ? 'block' : 'none';
+    ['proc','tools'].forEach(t => {
+      const btn = document.getElementById('simtab-'+t);
+      if (btn) { btn.style.background = t===tab ? 'var(--s2)' : 'transparent'; btn.style.borderBottom = t===tab ? '2px solid var(--sim)' : 'none'; btn.style.color = t===tab ? 'var(--text)' : 'var(--muted)'; }
+    });
+  };
+
+  // ─── VIEW MODE ───────────────────────────────────
+  window.setViewMode = function(mode) {
+    ['VR','2D','3D'].forEach(m => {
+      const btn = document.getElementById('vmode-'+m);
+      if (btn) { btn.style.background = m===mode ? 'var(--s3)' : ''; btn.style.color = m===mode ? 'var(--text)' : ''; }
+    });
+  };
+
+  window.setAngle = function(i) {
+    const angles = [0, -45, 0, 45, 0];
     rotY = angles[i];
-    renderModel(false);
+    const wrap = document.getElementById('body-canvas');
+    if (wrap) wrap.style.transform = `rotateY(${rotY}deg)`;
   };
 
-  // ─── COMPARE ─────────────────────────────────────
-  window.toggleCompare = function() {
-    comparing = !comparing;
-    const ov  = document.getElementById('compare-overlay');
-    const btn = document.getElementById('compare-btn');
-    if (ov)  ov.style.display  = comparing ? 'block' : 'none';
-    if (btn) btn.style.background = comparing ? 'var(--sim-dim)' : '';
-    if (comparing) renderModel(false);
+  // ─── CATALOG ─────────────────────────────────────
+  window.openCatalog = function() {
+    const modal = document.getElementById('catalog-modal');
+    if (modal) { modal.style.removeProperty('display'); modal.style.display = 'flex'; }
+    renderCatalogItems(IMPLANT_CATALOG);
   };
-
-  // Compare divider drag
-  window.startCompareDrag = function(e) {
-    compareDragging = true;
-    e.stopPropagation();
-    document.onmousemove = function(ev) {
-      if (!compareDragging) return;
-      const vp = document.getElementById('sim-viewport');
-      if (!vp) return;
-      const rect = vp.getBoundingClientRect();
-      const pct  = Math.max(10, Math.min(90, ((ev.clientX - rect.left) / rect.width) * 100));
-      document.getElementById('before-panel').style.clipPath = `inset(0 ${100-pct}% 0 0)`;
-      document.getElementById('after-panel').style.clipPath  = `inset(0 0 0 ${pct}%)`;
-      document.getElementById('compare-divider').style.left  = pct + '%';
-    };
-    document.onmouseup = function() { compareDragging = false; document.onmousemove = null; document.onmouseup = null; };
+  window.closeCatalog = function() {
+    const modal = document.getElementById('catalog-modal');
+    if (modal) modal.style.display = 'none';
   };
-
-  // ─── ZOOM ────────────────────────────────────────
-  const zs = document.getElementById('zoom-slider');
-  if (zs) zs.oninput = function() {
-    zoomLevel = +this.value;
-    document.getElementById('zoom-val').textContent = this.value + '%';
-    renderModel(false);
+  window.filterCatalog = function(q) {
+    const query = (q || document.getElementById('catalog-search')?.value || '').toLowerCase();
+    const brand = document.getElementById('catalog-brand')?.value || '';
+    const filtered = IMPLANT_CATALOG.filter(i =>
+      (!query || i.name.toLowerCase().includes(query) || i.code.toLowerCase().includes(query)) &&
+      (!brand || i.brand === brand)
+    );
+    renderCatalogItems(filtered);
   };
-
-  // ─── RESET ───────────────────────────────────────
-  window.resetSim = function() {
-    currentType = null;
-    params = {};
-    rotX = rotY = 0;
-    comparing = false;
-    document.getElementById('idle-state').style.display = 'block';
-    document.getElementById('model-state').style.display = 'none';
-    document.getElementById('compare-overlay').style.display = 'none';
-    document.getElementById('sim-mode-label').textContent = 'AGUARDA TIPO';
-    document.getElementById('sim-params-body').innerHTML = '<div style="font-size:11px;color:var(--muted);text-align:center;padding:20px 0">Selecione o tipo de simulação</div>';
-    document.querySelectorAll('[id^="simtype-"]').forEach(el => { el.style.borderColor='var(--border)'; el.style.background='var(--s2)'; });
-  };
-
-  // ─── LOAD PATIENT ────────────────────────────────
-  window.loadPatientSim = function(id) {
-    const p = AppData.patients.find(x => x.id == id || x.id === id);
-    if (!p) return;
-    selectSimType(p.simType || 'breast');
-  };
-
-  // ─── EXPORT ──────────────────────────────────────
-  window.exportSimPNG = function() {
-    const wrap = document.getElementById('body-svg-wrap');
-    if (!wrap || !wrap.innerHTML) { alert('Gere um modelo primeiro'); return; }
-    const svg   = wrap.querySelector('svg');
-    if (!svg) return;
-    const blob  = new Blob([svg.outerHTML], {type:'image/svg+xml'});
-    const url   = URL.createObjectURL(blob);
-    const a     = document.createElement('a');
-    a.href = url; a.download = 'simulacao-' + (currentType||'modelo') + '.svg';
-    a.click(); URL.revokeObjectURL(url);
-  };
-
-  // ─── SHARE ───────────────────────────────────────
-  window.simSharedState = false;
-  window.toggleSimShare = function() {
-    window.simSharedState = !window.simSharedState;
-    const toggle  = document.getElementById('sim-toggle');
-    const thumb   = document.getElementById('sim-toggle-thumb');
-    const badge   = document.getElementById('sim-share-badge');
-    const actions = document.getElementById('sim-share-actions');
-    const privMsg = document.getElementById('sim-private-msg');
-    if (window.simSharedState) {
-      toggle.style.background = 'var(--pron)';
-      thumb.style.transform   = 'translateX(20px)';
-      badge.textContent = '● PARTILHADA'; badge.style.background='rgba(52,211,153,.12)'; badge.style.color='var(--pron)';
-      actions.style.display = 'flex'; privMsg.style.display = 'none';
-    } else {
-      toggle.style.background = 'var(--border)';
-      thumb.style.transform   = 'translateX(0)';
-      badge.textContent = '● PRIVADA'; badge.style.background='rgba(248,113,113,.12)'; badge.style.color='var(--danger)';
-      actions.style.display = 'none'; privMsg.style.display = 'block';
-    }
-  };
-  window.showSimNotify = function(ch) {
-    const btn = document.getElementById('save-sim-btn') || document.querySelector('.btn-sim');
-    if (!btn) return;
-    const orig = btn.textContent;
-    btn.textContent = '✓ Enviado!'; btn.style.background = 'var(--pron)';
-    setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 2500);
-  };
-  window.saveSim = function() {
-    const btns = document.querySelectorAll('.btn-sim');
-    btns.forEach(b => { const o=b.textContent; b.textContent='✓ Guardado!'; b.style.background='var(--pron)'; setTimeout(()=>{b.textContent=o;b.style.background='';},2000); });
-  };
-
-  // Add spin keyframe if not present
-  if (!document.getElementById('sim-spin-style')) {
-    const s = document.createElement('style');
-    s.id = 'sim-spin-style';
-    s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
-    document.head.appendChild(s);
+  function renderCatalogItems(items) {
+    const list = document.getElementById('catalog-list');
+    const cnt  = document.getElementById('catalog-count');
+    if (!list) return;
+    if (cnt) cnt.textContent = items.length + ' resultados';
+    list.innerHTML = items.map(item => `
+    <div onclick="selectImplantFromCatalog(${item.vol},${item.diam},${item.proj},'${item.perfil}','${item.formato}')"
+         style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:border-color .15s"
+         onmouseover="this.style.borderColor='var(--sim)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:11px;font-weight:600">${item.name}</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:2px">${item.brand} · ${item.code}</div>
+        </div>
+        <span style="font-size:9px;background:rgba(167,139,250,.12);color:var(--sim);padding:2px 7px;border-radius:4px;font-family:var(--mono)">${item.vol}cc</span>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px;font-size:10px;color:var(--muted)">
+        <span>Ø <strong style="color:var(--text)">${item.diam}cm</strong></span>
+        <span>Proj <strong style="color:var(--text)">${item.proj}cm</strong></span>
+        <span>Perfil <strong style="color:var(--text)">${{low:'Baixo',mod:'Moderado',high:'Alto',xhigh:'Extra alto'}[item.perfil]}</strong></span>
+        <span>${{round:'⬤ Redondo',oval:'⬭ Oval',teardrop:'▽ Teardrop'}[item.formato]}</span>
+      </div>
+    </div>`).join('');
   }
+  window.selectImplantFromCatalog = function(vol, diam, proj, perfil, formato) {
+    params.volume = vol; params.diametro = diam; params.perfil = perfil; params.formato = formato;
+    document.getElementById('vol-slider').value  = vol;   document.getElementById('vol-display').textContent  = vol + ' cc';
+    document.getElementById('diam-slider').value = diam;  document.getElementById('diam-display').textContent = diam.toString().replace('.',',') + ' cm';
+    refreshSelectionStyles();
+    renderBreast();
+    closeCatalog();
+  };
+
+  // ─── EXPORT / SHARE ──────────────────────────────
+  window.simShare = function() { const btn = document.querySelector('[onclick="simShare()"]'); if(btn){const o=btn.textContent;btn.textContent='✓ Link copiado!';setTimeout(()=>btn.textContent=o,2000);} };
+  window.simPDF   = function() { const btn = document.querySelector('[onclick="simPDF()"]');   if(btn){const o=btn.textContent;btn.textContent='⏳ A gerar...';setTimeout(()=>btn.textContent=o,2000);} };
+  window.simExport= function() {
+    const svg = document.querySelector('#body-canvas svg');
+    if (!svg) return;
+    const blob = new Blob([svg.outerHTML], {type:'image/svg+xml'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'simulacao-mama.svg'; a.click();
+  };
+
+  // ─── INIT ─────────────────────────────────────────
+  refreshSelectionStyles();
+  renderBreast();
+  document.getElementById('sim-before-label').style.display = 'block';
+
+  // Patient label
+  const sel = AppData?.patients?.[0];
+  if (sel) { const lbl = document.getElementById('sim-patient-label'); if(lbl) lbl.textContent = sel.name; }
+
+  // 3D CSS perspective
+  const body3d = document.getElementById('body-3d-wrap');
+  if (body3d) { body3d.parentElement.style.perspective = '800px'; body3d.style.transformStyle = 'preserve-3d'; }
 };
 
 
