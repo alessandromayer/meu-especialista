@@ -1429,595 +1429,700 @@ PageInit.crm = (opts) => {
 // =============================================
 // =============================================
 // =============================================
-// 3. SIMULATOR 3D — Mama (estilo Crisalix)
+// =============================================
+// 3. SIMULATOR 3D — Mama (Crisalix-style full)
 // =============================================
 PageRenderers.simulator = () => `
-<div class="page" style="padding:0;height:calc(100vh - 56px);display:flex;flex-direction:column;overflow:hidden">
+<div class="page" style="padding:0;height:calc(100vh - 56px);display:flex;flex-direction:column;overflow:hidden" id="sim-root">
 
   <!-- TOP BAR -->
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0">
-    <div style="display:flex;align-items:center;gap:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0;gap:12px">
+    <div style="display:flex;align-items:center;gap:10px">
       <button class="btn btn-ghost btn-sm" onclick="App.navigate('crm')" style="font-size:11px">← Pacientes</button>
-      <span style="font-size:11px;color:var(--muted)" id="sim-patient-label">Sem paciente seleccionado</span>
+      <span style="width:1px;height:16px;background:var(--border)"></span>
+      <select class="input select" style="font-size:11px;padding:4px 8px;width:180px" id="sim-patient-sel">
+        <option value="">— Selecionar paciente —</option>
+        ${AppData.patients.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
+      </select>
     </div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <div style="display:flex;gap:2px;background:var(--s2);border-radius:8px;padding:3px">
+    <div style="display:flex;align-items:center;gap:6px" id="sim-topbar-actions" style="display:none">
+      <div style="display:flex;gap:2px;background:var(--s2);border-radius:8px;padding:3px" id="viewmode-btns">
         ${['VR','2D','3D'].map((v,i)=>`<button onclick="setViewMode('${v}')" id="vmode-${v}" class="btn btn-ghost btn-sm" style="font-size:10px;padding:4px 10px;${i===2?'background:var(--s3);color:var(--text)':''}">${v}</button>`).join('')}
       </div>
       <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="simShare()">🔗 Partilhar</button>
       <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="simPDF()">PDF</button>
-      <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="simExport()">⬇</button>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="simExport()">⬇ Export</button>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--sim);border-color:var(--sim)" onclick="resetSimulator()">↩ Nova simulação</button>
     </div>
   </div>
 
-  <!-- MAIN AREA -->
-  <div style="display:flex;flex:1;overflow:hidden">
+  <!-- STEP: UPLOAD -->
+  <div id="sim-step-upload" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;gap:24px">
 
-    <!-- LEFT MINI TOOLBAR -->
-    <div style="width:40px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:6px;flex-shrink:0">
-      ${[['✏️','Editar'],['👁️','Vista'],['🔄','Reset'],['📏','Medidas'],['💾','Guardar'],['↩','Desfazer']].map(([ic,tt])=>`
-      <div title="${tt}" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;font-size:14px;transition:background .15s" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''">${ic}</div>`).join('')}
+    <div style="text-align:center;max-width:560px">
+      <div style="font-size:24px;margin-bottom:10px">📸</div>
+      <div style="font-size:18px;font-weight:600;margin-bottom:8px">Carregar fotos para simulação 3D</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7">
+        Carregue <strong>3 fotografias</strong> da paciente para gerar o modelo 3D.<br>
+        As fotos devem ser semelhantes aos exemplos abaixo.
+      </div>
     </div>
 
-    <!-- CENTER: 3D VIEWPORT -->
-    <div style="flex:1;position:relative;background:#1a1a2e;overflow:hidden;display:flex;align-items:center;justify-content:center" id="sim-viewport">
+    <!-- PHOTO INSTRUCTIONS -->
+    <div style="display:flex;gap:16px;margin-bottom:8px">
+      ${[['Frontal','👤','De frente, braços ao lado'],['Lateral D','👤','Perfil direito'],['Lateral E','👤','Perfil esquerdo']].map(([label,ic,desc],i)=>`
+      <div style="text-align:center;width:130px">
+        <div style="width:130px;height:170px;border:2px dashed var(--border);border-radius:12px;background:var(--s2);display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:8px;position:relative;overflow:hidden;transition:border-color .2s" id="upload-box-${i}"
+             ondragover="event.preventDefault();this.style.borderColor='var(--sim)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="handleDrop(event,${i})">
+          <img id="preview-${i}" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:10px"/>
+          <div id="upload-placeholder-${i}" style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer" onclick="triggerFileInput(${i})">
+            <span style="font-size:28px">+</span>
+            <span style="font-size:10px;color:var(--muted)">${label}</span>
+          </div>
+          <div id="upload-check-${i}" style="display:none;position:absolute;top:6px;right:6px;width:20px;height:20px;background:var(--pron);border-radius:50%;display:none;align-items:center;justify-content:center;font-size:10px">✓</div>
+        </div>
+        <div style="font-size:10px;color:var(--muted)">${desc}</div>
+        <input type="file" accept="image/*" id="file-input-${i}" style="display:none" onchange="handleFileSelect(event,${i})">
+      </div>`).join('')}
+    </div>
 
-      <!-- BODY MODEL -->
-      <div id="body-3d-wrap" style="position:relative;user-select:none;cursor:grab"
-           onmousedown="simDragStart(event)" onmousemove="simDragMove(event)" onmouseup="simDragEnd()" onmouseleave="simDragEnd()">
-        <div id="body-canvas" style="position:relative"></div>
+    <!-- INSTRUCTIONS NOTE -->
+    <div style="background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.15);border-radius:10px;padding:12px 18px;font-size:11px;color:var(--muted);max-width:500px;line-height:1.8;text-align:left">
+      <div style="font-weight:600;color:var(--text);margin-bottom:6px">✅ Para melhores resultados:</div>
+      <div>• Paciente de pé, braços levemente afastados do corpo</div>
+      <div>• Fundo neutro (branco, creme ou cinzento)</div>
+      <div>• Boa iluminação sem sombras</div>
+      <div>• Capturar desde o pescoço até abaixo da cintura</div>
+    </div>
+
+    <button id="btn-gerar-3d" onclick="startGenerate3D()" disabled
+      style="background:var(--sim);color:white;border:none;border-radius:10px;padding:12px 32px;font-size:14px;font-weight:600;cursor:pointer;opacity:.4;transition:all .2s">
+      ✨ Criar modelo 3D
+    </button>
+
+    <div style="font-size:11px;color:var(--muted)">ou <span onclick="useDemoPhotos()" style="color:var(--sim);cursor:pointer;text-decoration:underline">usar fotos demo</span> para testar</div>
+  </div>
+
+  <!-- STEP: PROCESSING -->
+  <div id="sim-step-processing" style="display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:24px">
+    <div style="font-size:48px" id="proc-icon">🔄</div>
+    <div style="font-size:18px;font-weight:600" id="proc-title">A processar modelo 3D...</div>
+    <div style="width:300px;height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+      <div id="proc-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--sim),var(--pron));transition:width .5s;border-radius:2px"></div>
+    </div>
+    <div id="proc-step" style="font-size:11px;color:var(--muted);font-family:var(--mono)">Analisando fotografias...</div>
+    <div style="display:flex;gap:8px;margin-top:8px" id="proc-previews"></div>
+  </div>
+
+  <!-- STEP: VIEWER -->
+  <div id="sim-step-viewer" style="display:none;flex:1;overflow:hidden;flex-direction:row">
+
+    <!-- LEFT MINI TOOLBAR -->
+    <div style="width:40px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:4px;flex-shrink:0">
+      ${[['✏️','Anotar'],['🔍','Zoom'],['↩','Desfazer'],['📐','Medir'],['💾','Guardar'],['🔄','Rodar']].map(([ic,tt])=>`
+      <div title="${tt}" onclick="simToolAction('${tt}')" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;font-size:13px;transition:background .15s" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''">${ic}</div>`).join('')}
+    </div>
+
+    <!-- CENTER VIEWPORT -->
+    <div style="flex:1;position:relative;background:#0d0d0d;overflow:hidden;display:flex;align-items:center;justify-content:center" id="sim-viewport">
+
+      <!-- PHOTO + OVERLAY CONTAINER -->
+      <div id="photo-sim-wrap" style="position:relative;display:inline-block;user-select:none">
+        <!-- Base photo -->
+        <img id="sim-photo-base" style="display:block;max-height:calc(100vh - 160px);max-width:100%;object-fit:contain;border-radius:0" draggable="false"/>
+        <!-- SVG overlay for implant simulation -->
+        <svg id="implant-overlay" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 400 600" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <radialGradient id="igL" cx="38%" cy="32%" r="62%">
+              <stop offset="0%" stop-color="rgba(240,190,150,.55)"/>
+              <stop offset="55%" stop-color="rgba(210,160,120,.45)"/>
+              <stop offset="100%" stop-color="rgba(160,100,70,.15)"/>
+            </radialGradient>
+            <radialGradient id="igR" cx="62%" cy="32%" r="62%">
+              <stop offset="0%" stop-color="rgba(240,190,150,.55)"/>
+              <stop offset="55%" stop-color="rgba(210,160,120,.45)"/>
+              <stop offset="100%" stop-color="rgba(160,100,70,.15)"/>
+            </radialGradient>
+            <radialGradient id="iHL" cx="35%" cy="28%" r="40%">
+              <stop offset="0%" stop-color="rgba(255,230,200,.4)"/>
+              <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+            </radialGradient>
+            <radialGradient id="iHR" cx="65%" cy="28%" r="40%">
+              <stop offset="0%" stop-color="rgba(255,230,200,.4)"/>
+              <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+            </radialGradient>
+            <filter id="softBlur"><feGaussianBlur stdDeviation="3"/></filter>
+            <filter id="edgeBlur"><feGaussianBlur stdDeviation="6"/></filter>
+          </defs>
+          <!-- Shadows under breasts -->
+          <ellipse id="shadL" cx="148" cy="298" rx="42" ry="10" fill="rgba(80,40,20,.18)" filter="url(#softBlur)"/>
+          <ellipse id="shadR" cx="252" cy="298" rx="42" ry="10" fill="rgba(80,40,20,.18)" filter="url(#softBlur)"/>
+          <!-- Edge blur masks -->
+          <path id="edgeL" d="" fill="rgba(0,0,0,0)" filter="url(#edgeBlur)"/>
+          <path id="edgeR" d="" fill="rgba(0,0,0,0)" filter="url(#edgeBlur)"/>
+          <!-- Main implant shapes -->
+          <path id="implL" d="" fill="url(#igL)"/>
+          <path id="implR" d="" fill="url(#igR)"/>
+          <!-- Highlights -->
+          <path id="highlL" d="" fill="url(#iHL)"/>
+          <path id="highlR" d="" fill="url(#iHR)"/>
+        </svg>
+
+        <!-- DRAG HANDLE for overlay positioning -->
+        <div id="overlay-drag-handle" title="Arrastar para reposicionar" style="display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(167,139,250,.8);color:white;font-size:9px;padding:3px 10px;border-radius:12px;cursor:move;font-family:var(--mono);z-index:10"
+             onmousedown="startOverlayDrag(event)">⠿ AJUSTAR POSIÇÃO</div>
       </div>
 
-      <!-- BEFORE/AFTER LABELS -->
-      <div id="sim-before-label" style="position:absolute;bottom:50px;left:20px;display:none">
-        <button onclick="toggleBeforeAfter()" id="ba-btn" style="background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:11px;font-family:var(--mono)">
-          ◑ ANTES / DEPOIS
-        </button>
+      <!-- VIEW SELECTOR (left side) -->
+      <div style="position:absolute;left:10px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px" id="view-thumbs"></div>
+
+      <!-- BEFORE / AFTER -->
+      <div style="position:absolute;bottom:14px;left:14px;display:flex;gap:8px">
+        <button id="ba-antes" onclick="setBeforeAfter('antes')" style="background:rgba(255,255,255,.9);color:#000;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;font-size:11px;font-weight:600">Antes</button>
+        <button id="ba-depois" onclick="setBeforeAfter('depois')" style="background:rgba(167,139,250,.9);color:white;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;font-size:11px;font-weight:600">Depois</button>
       </div>
 
-      <!-- VIEW ANGLES bottom bar -->
-      <div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px">
-        ${[['↑','Superior'],['←','Esq'],['⊙','Frontal'],['→','Dir'],['↓','Inferior']].map(([ic,lb],i)=>`
-        <button onclick="setAngle(${i})" title="${lb}" style="width:28px;height:28px;background:rgba(0,0,0,.5);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.15);border-radius:6px;cursor:pointer;font-size:11px">${ic}</button>`).join('')}
+      <!-- ZOOM controls -->
+      <div style="position:absolute;bottom:14px;right:14px;display:flex;gap:4px">
+        <button onclick="zoomSim(-0.1)" style="width:28px;height:28px;background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;cursor:pointer;font-size:14px">−</button>
+        <button onclick="zoomSim(0.1)"  style="width:28px;height:28px;background:rgba(0,0,0,.5);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;cursor:pointer;font-size:14px">+</button>
       </div>
 
-      <!-- IMPLANT POSITION INDICATOR -->
-      <div id="implant-pos-badge" style="display:none;position:absolute;bottom:12px;right:12px;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.3);color:var(--sim);font-size:9px;font-family:var(--mono);padding:4px 10px;border-radius:6px">
-        POSIÇÃO DO IMPLANTE
+      <!-- IMPLANT INFO BADGE -->
+      <div id="implant-info-badge" style="position:absolute;top:14px;right:14px;background:rgba(0,0,0,.6);border:1px solid rgba(167,139,250,.3);color:var(--sim);font-size:9px;font-family:var(--mono);padding:5px 10px;border-radius:8px;line-height:1.8;display:none">
+        <div id="badge-vol">— cc</div>
+        <div id="badge-diam">Ø — cm</div>
+        <div id="badge-perf">Perfil —</div>
       </div>
     </div>
 
     <!-- RIGHT PANEL -->
-    <div style="width:260px;background:var(--bg);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0">
-
-      <!-- TABS -->
-      <div style="display:flex;border-bottom:1px solid var(--border)">
+    <div style="width:260px;background:var(--bg);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0">
+      <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0">
         <button onclick="setSimTab('proc')" id="simtab-proc" style="flex:1;padding:10px;font-size:11px;font-weight:600;border:none;background:var(--s2);color:var(--text);cursor:pointer;border-bottom:2px solid var(--sim)">Procedimentos</button>
-        <button onclick="setSimTab('tools')" id="simtab-tools" style="flex:1;padding:10px;font-size:11px;color:var(--muted);border:none;background:transparent;cursor:pointer">Ferramentas</button>
+        <button onclick="setSimTab('tools')" id="simtab-tools" style="flex:1;padding:10px;font-size:11px;color:var(--muted);border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent">Ferramentas</button>
       </div>
 
-      <div id="sim-panel-proc" style="flex:1">
+      <div id="sim-panel-proc" style="flex:1;overflow-y:auto">
 
         <!-- AUMENTO PRIMÁRIO -->
-        <div id="section-augment" style="border-bottom:1px solid var(--border)">
-          <div onclick="toggleSection('augment')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;background:var(--s2)">
+        <div style="border-bottom:1px solid var(--border)">
+          <div onclick="toggleSection('aug')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;background:var(--s2)">
             <span style="font-size:12px;font-weight:600">Aumento primário</span>
-            <span id="aug-arrow" style="color:var(--muted);font-size:12px">−</span>
+            <span id="aug-arr" style="font-size:11px;color:var(--muted)">−</span>
           </div>
-          <div id="aug-body" style="padding:14px;display:flex;flex-direction:column;gap:12px">
+          <div id="aug-body" style="padding:14px 12px;display:flex;flex-direction:column;gap:11px">
 
-            <!-- TYPE ICONS -->
-            <div style="display:flex;align-items:center;gap:6px">
-              ${[['round','⬤','Redondo'],['oval','⬭','Anatómico'],['teardrop','▽','Teardrop']].map(([k,ic,lb])=>`
-              <div id="fmt-${k}" onclick="setImplantParam('formato','${k}')" title="${lb}" style="flex:1;height:36px;border:1.5px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all .15s" onmouseover="this.style.borderColor='var(--sim)'" onmouseout="refreshFmtStyle()">${ic}</div>`).join('')}
-              <button onclick="openCatalog()" style="flex:1;height:36px;border:1.5px solid var(--border);border-radius:8px;font-size:9px;font-weight:600;color:var(--muted);background:transparent;cursor:pointer;letter-spacing:.5px">📋 Catálogo</button>
+            <!-- FORMAT + CATALOG row -->
+            <div style="display:flex;gap:5px">
+              ${[['round','⬤','Redondo'],['oval','⬭','Oval'],['tear','▽','Teardrop']].map(([k,ic,lb])=>`
+              <div id="fmt-${k}" onclick="setP('formato','${k}')" title="${lb}" style="flex:1;height:34px;border:1.5px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;transition:all .15s">${ic}</div>`).join('')}
+              <button onclick="openCatalog()" style="flex:1;height:34px;border:1.5px solid var(--border);border-radius:8px;font-size:9px;font-weight:600;color:var(--muted);background:transparent;cursor:pointer">📋</button>
             </div>
 
             <!-- VOLUME -->
             <div>
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
                 <span style="font-size:11px;color:var(--muted)">Volume</span>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <button onclick="adjustParam('volume',-25)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">−</button>
-                  <span style="font-size:13px;font-weight:600;min-width:60px;text-align:center;font-family:var(--mono)" id="vol-display">250 cc</span>
-                  <button onclick="adjustParam('volume',25)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">+</button>
+                <div style="display:flex;align-items:center;gap:5px">
+                  <button onclick="adj('volume',-25)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer">−</button>
+                  <span style="font-size:13px;font-weight:700;min-width:62px;text-align:center;font-family:var(--mono)" id="d-vol">250 cc</span>
+                  <button onclick="adj('volume', 25)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer">+</button>
                 </div>
               </div>
-              <input type="range" min="100" max="800" step="25" value="250" style="width:100%;accent-color:var(--sim)" id="vol-slider" oninput="setParamSlider('volume',this.value)">
+              <input type="range" min="100" max="800" step="25" value="250" style="width:100%;accent-color:var(--sim)" id="s-vol" oninput="sliderP('volume',this.value)">
             </div>
 
             <!-- DIÂMETRO -->
             <div>
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
                 <span style="font-size:11px;color:var(--muted)">Diâmetro</span>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <button onclick="adjustParam('diametro',-0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;font-size:14px">−</button>
-                  <span style="font-size:13px;font-weight:600;min-width:60px;text-align:center;font-family:var(--mono)" id="diam-display">11,5 cm</span>
-                  <button onclick="adjustParam('diametro',0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;font-size:14px">+</button>
+                <div style="display:flex;align-items:center;gap:5px">
+                  <button onclick="adj('diam',-0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer">−</button>
+                  <span style="font-size:13px;font-weight:700;min-width:62px;text-align:center;font-family:var(--mono)" id="d-diam">11,5 cm</span>
+                  <button onclick="adj('diam', 0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer">+</button>
                 </div>
               </div>
-              <input type="range" min="8" max="16" step="0.5" value="11.5" style="width:100%;accent-color:var(--sim)" id="diam-slider" oninput="setParamSlider('diametro',this.value)">
+              <input type="range" min="8" max="16" step="0.5" value="11.5" style="width:100%;accent-color:var(--sim)" id="s-diam" oninput="sliderP('diam',this.value)">
             </div>
 
             <!-- ALTURA -->
             <div>
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
                 <span style="font-size:11px;color:var(--muted)">Altura</span>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <button onclick="adjustParam('altura',-0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;font-size:14px">−</button>
-                  <span style="font-size:13px;font-weight:600;min-width:60px;text-align:center;font-family:var(--mono)" id="alt-display">9,0 cm</span>
-                  <button onclick="adjustParam('altura',0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;font-size:14px">+</button>
+                <div style="display:flex;align-items:center;gap:5px">
+                  <button onclick="adj('alt',-0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer">−</button>
+                  <span style="font-size:13px;font-weight:700;min-width:62px;text-align:center;font-family:var(--mono)" id="d-alt">9,0 cm</span>
+                  <button onclick="adj('alt', 0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer">+</button>
                 </div>
               </div>
-              <input type="range" min="6" max="14" step="0.5" value="9" style="width:100%;accent-color:var(--sim)" id="alt-slider" oninput="setParamSlider('altura',this.value)">
+              <input type="range" min="6" max="14" step="0.5" value="9" style="width:100%;accent-color:var(--sim)" id="s-alt" oninput="sliderP('alt',this.value)">
             </div>
 
-            <!-- FORMATO / PERFIL row -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <!-- FORMATO -->
+            <!-- FORMATO + PERFIL icons -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
               <div>
-                <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Formato</div>
-                <div style="display:flex;gap:4px">
-                  ${[['D','round','Redondo'],['○','oval','Oval'],['▽','teardrop','Teardrop']].map(([ic,k,lb])=>`
-                  <div id="fmtico-${k}" onclick="setImplantParam('formato','${k}')" title="${lb}" style="flex:1;height:28px;border:1.5px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);transition:all .15s">${ic}</div>`).join('')}
+                <div style="font-size:10px;color:var(--muted);margin-bottom:5px;font-weight:600">Formato</div>
+                <div style="display:flex;gap:3px">
+                  ${[['D','round'],['○','oval'],['▽','tear']].map(([ic,k])=>`
+                  <div id="fico-${k}" onclick="setP('formato','${k}')" style="flex:1;height:26px;border:1.5px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;font-weight:700;color:var(--muted);transition:all .15s">${ic}</div>`).join('')}
                 </div>
               </div>
-              <!-- PERFIL -->
               <div>
-                <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Perfil</div>
-                <div style="display:flex;gap:4px">
-                  ${[['L','low','Baixo'],['M','mod','Moderado'],['H','high','Alto'],['XH','xhigh','Extra alto']].map(([ic,k,lb])=>`
-                  <div id="perfil-${k}" onclick="setImplantParam('perfil','${k}')" title="${lb}" style="flex:1;height:28px;border:1.5px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;font-weight:700;color:var(--muted);transition:all .15s">${ic}</div>`).join('')}
+                <div style="font-size:10px;color:var(--muted);margin-bottom:5px;font-weight:600">Perfil</div>
+                <div style="display:flex;gap:3px">
+                  ${[['L','low'],['M','mod'],['H','high'],['XH','xh']].map(([ic,k])=>`
+                  <div id="pfil-${k}" onclick="setP('perfil','${k}')" style="flex:1;height:26px;border:1.5px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;font-weight:700;color:var(--muted);transition:all .15s">${ic}</div>`).join('')}
                 </div>
               </div>
             </div>
 
             <!-- MÉTODO -->
             <div>
-              <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Método</div>
-              <div style="display:flex;gap:6px">
-                ${[['sub','🫁','Submuscular'],['subg','💊','Subglandular'],['dual','⚡','Dual plane']].map(([k,ic,lb])=>`
-                <div id="met-${k}" onclick="setImplantParam('metodo','${k}')" title="${lb}" style="flex:1;height:32px;border:1.5px solid var(--border);border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:1px;transition:all .15s">
-                  <span style="font-size:12px">${ic}</span>
-                  <span style="font-size:8px;color:var(--muted)">${lb.split(' ')[0]}</span>
-                </div>`).join('')}
+              <div style="font-size:10px;color:var(--muted);margin-bottom:5px;font-weight:600">Método</div>
+              <div style="display:flex;gap:5px">
+                ${[['sub','Submuscular'],['subg','Subglandular'],['dual','Dual Plane']].map(([k,lb])=>`
+                <div id="met-${k}" onclick="setP('metodo','${k}')" style="flex:1;border:1.5px solid var(--border);border-radius:7px;padding:6px 3px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:8.5px;color:var(--muted);text-align:center;line-height:1.3;font-weight:600;transition:all .15s">${lb}</div>`).join('')}
               </div>
             </div>
 
-            <!-- SIMÉTRICO toggle -->
-            <div style="display:flex;align-items:center;justify-content:space-between;background:var(--s2);border-radius:8px;padding:9px 11px">
+            <!-- SIMÉTRICO -->
+            <div style="display:flex;align-items:center;justify-content:space-between;background:var(--s2);border-radius:8px;padding:8px 10px">
               <span style="font-size:11px">Simétrico</span>
-              <div id="sym-toggle" onclick="toggleSymmetry()" style="width:38px;height:20px;border-radius:10px;background:var(--sim);cursor:pointer;position:relative;transition:background .2s">
-                <div id="sym-thumb" style="position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:white;transition:transform .2s;transform:translateX(18px)"></div>
+              <div id="sym-tog" onclick="toggleSym()" style="width:36px;height:20px;border-radius:10px;background:var(--sim);cursor:pointer;position:relative">
+                <div id="sym-thumb" style="position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:white;transition:transform .2s;transform:translateX(16px)"></div>
               </div>
             </div>
 
           </div>
         </div>
 
-        <!-- MASTOPEXIA -->
+        <!-- COLLAPSED SECTIONS -->
+        ${[['masto','Mastopexia'],['redu','Redução'],['troca','Troca de prótese'],['lipo','Lipofilling']].map(([k,lb])=>`
         <div style="border-bottom:1px solid var(--border)">
-          <div onclick="toggleSection('masto')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer">
-            <span style="font-size:12px;font-weight:500">Mastopexia</span>
-            <span id="masto-arrow" style="color:var(--muted);font-size:12px">+</span>
+          <div onclick="toggleSection('${k}')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer">
+            <span style="font-size:12px;font-weight:500">${lb}</span>
+            <span id="${k}-arr" style="font-size:14px;color:var(--muted)">+</span>
           </div>
-          <div id="masto-body" style="display:none;padding:12px;font-size:11px;color:var(--muted)">
-            Ptose grau I / II / III
-          </div>
-        </div>
-
-        <!-- REDUÇÃO -->
-        <div style="border-bottom:1px solid var(--border)">
-          <div onclick="toggleSection('redu')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer">
-            <span style="font-size:12px;font-weight:500">Redução</span>
-            <span id="redu-arrow" style="color:var(--muted);font-size:12px">+</span>
-          </div>
-          <div id="redu-body" style="display:none;padding:12px;font-size:11px;color:var(--muted)">Tecido a remover (g)</div>
-        </div>
-
-        <!-- TROCA DE PRÓTESE -->
-        <div style="border-bottom:1px solid var(--border)">
-          <div onclick="toggleSection('troca')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer">
-            <span style="font-size:12px;font-weight:500">Troca de prótese</span>
-            <span id="troca-arrow" style="color:var(--muted);font-size:12px">+</span>
-          </div>
-          <div id="troca-body" style="display:none;padding:12px;font-size:11px;color:var(--muted)">Remover implante existente</div>
-        </div>
-
-        <!-- LIPOFILLING -->
-        <div>
-          <div onclick="toggleSection('lipo')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer">
-            <span style="font-size:12px;font-weight:500">Lipofilling</span>
-            <span id="lipo-arrow" style="color:var(--muted);font-size:12px">+</span>
-          </div>
-          <div id="lipo-body" style="display:none;padding:12px;font-size:11px;color:var(--muted)">Volume de gordura (cc)</div>
-        </div>
+          <div id="${k}-body" style="display:none;padding:12px 14px;font-size:11px;color:var(--muted)">Em desenvolvimento</div>
+        </div>`).join('')}
 
       </div>
-
-      <!-- TOOLS TAB -->
-      <div id="sim-panel-tools" style="display:none;padding:14px;font-size:11px;color:var(--muted)">
-        Ferramentas de medição em breve
+      <div id="sim-panel-tools" style="display:none;padding:14px;overflow-y:auto">
+        <div style="font-size:11px;color:var(--muted)">Ferramentas de medição em breve</div>
       </div>
-
     </div>
   </div>
 
   <!-- CATALOG MODAL -->
-  <div id="catalog-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center">
-    <div style="background:var(--bg);border-radius:14px;width:560px;max-height:80vh;display:flex;flex-direction:column;border:1px solid var(--border)">
+  <div id="cat-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;align-items:center;justify-content:center">
+    <div style="background:var(--bg);border-radius:14px;width:600px;max-height:82vh;display:flex;flex-direction:column;border:1px solid var(--border);box-shadow:0 24px 60px rgba(0,0,0,.5)">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
         <span style="font-size:14px;font-weight:600">Catálogo de Implantes</span>
-        <button onclick="closeCatalog()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px">×</button>
+        <button onclick="closeCatalog()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1">×</button>
       </div>
-      <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">
-        <input class="input" placeholder="Pesquisar implante..." style="flex:1;font-size:12px" id="catalog-search" oninput="filterCatalog(this.value)">
-        <select class="input select" style="width:120px;font-size:11px" id="catalog-brand" onchange="filterCatalog()">
+      <div style="padding:10px 18px;border-bottom:1px solid var(--border);display:flex;gap:8px">
+        <input class="input" placeholder="Pesquisar..." style="flex:1;font-size:12px" oninput="filterCat(this.value)">
+        <select class="input select" style="width:130px;font-size:11px" id="cat-brand" onchange="filterCat()">
           <option value="">Todas marcas</option>
-          <option value="Mentor">Mentor</option>
-          <option value="Allergan">Allergan</option>
-          <option value="Sientra">Sientra</option>
-          <option value="Sebbin">Sebbin</option>
+          <option>Mentor</option><option>Allergan</option><option>Sientra</option><option>Sebbin</option>
         </select>
       </div>
-      <div id="catalog-list" style="overflow-y:auto;padding:12px 18px;display:flex;flex-direction:column;gap:8px"></div>
-      <div style="padding:12px 18px;border-top:1px solid var(--border);font-size:10px;color:var(--muted)">
-        <span id="catalog-count">0 resultados</span>
-      </div>
+      <div id="cat-list" style="overflow-y:auto;padding:12px 18px;display:flex;flex-direction:column;gap:8px"></div>
+      <div style="padding:10px 18px;border-top:1px solid var(--border);font-size:10px;color:var(--muted)"><span id="cat-cnt"></span></div>
     </div>
   </div>
 </div>`;
 
-// ─── IMPLANT CATALOG DATA ──────────────────────────
-const IMPLANT_CATALOG = [
+// ─── CATALOG DATA ─────────────────────────────────
+const IMPL_CATALOG=[
   {brand:'Mentor',name:'Mentor Smooth Round Moderate',code:'350-1001',vol:250,diam:11.5,proj:3.5,perfil:'mod',formato:'round'},
   {brand:'Mentor',name:'Mentor Smooth Round Moderate Plus',code:'350-1007',vol:300,diam:12.0,proj:3.8,perfil:'mod',formato:'round'},
   {brand:'Mentor',name:'Mentor Smooth Round High Profile',code:'350-1231',vol:350,diam:11.0,proj:4.5,perfil:'high',formato:'round'},
-  {brand:'Mentor',name:'Mentor MemoryGel Xtra High',code:'MXHP-130',vol:400,diam:12.5,proj:5.0,perfil:'xhigh',formato:'round'},
+  {brand:'Mentor',name:'Mentor MemoryGel Xtra High',code:'MXHP-400',vol:400,diam:12.5,proj:5.2,perfil:'xh',formato:'round'},
+  {brand:'Mentor',name:'Mentor CPG Anatomic Moderate',code:'CPG-295',vol:295,diam:12.3,proj:4.1,perfil:'mod',formato:'tear'},
   {brand:'Allergan',name:'Allergan Natrelle Round Moderate',code:'NRM-250',vol:250,diam:11.3,proj:3.4,perfil:'mod',formato:'round'},
   {brand:'Allergan',name:'Allergan Natrelle Round High',code:'NRH-325',vol:325,diam:11.0,proj:4.3,perfil:'high',formato:'round'},
-  {brand:'Allergan',name:'Allergan Inspira Soft Touch',code:'IST-300',vol:300,diam:12.2,proj:3.9,perfil:'mod',formato:'round'},
-  {brand:'Allergan',name:'Allergan 410 Anatomic FF',code:'410FF-335',vol:335,diam:12.0,proj:4.2,perfil:'high',formato:'teardrop'},
+  {brand:'Allergan',name:'Allergan 410 Anatomic FF',code:'410FF-335',vol:335,diam:12.0,proj:4.2,perfil:'high',formato:'tear'},
+  {brand:'Allergan',name:'Allergan Inspira Cohesive',code:'ICS-375',vol:375,diam:12.8,proj:4.6,perfil:'xh',formato:'round'},
   {brand:'Sientra',name:'Sientra HSC+ Round Moderate Plus',code:'HSCRMP-270',vol:270,diam:11.8,proj:3.7,perfil:'mod',formato:'round'},
-  {brand:'Sientra',name:'Sientra HSC+ Shaped Full',code:'HSCSSF-295',vol:295,diam:11.5,proj:4.1,perfil:'high',formato:'teardrop'},
+  {brand:'Sientra',name:'Sientra HSC+ Round High',code:'HSCRHP-315',vol:315,diam:11.5,proj:4.4,perfil:'high',formato:'round'},
   {brand:'Sebbin',name:'Sebbin BioCell Round Moderate',code:'SCL-260',vol:260,diam:11.4,proj:3.5,perfil:'mod',formato:'round'},
-  {brand:'Sebbin',name:'Sebbin BioCell Anatomic',code:'SBA-310',vol:310,diam:11.9,proj:4.0,perfil:'high',formato:'teardrop'},
+  {brand:'Sebbin',name:'Sebbin BioCell Anatomic Full',code:'SBA-310',vol:310,diam:11.9,proj:4.0,perfil:'high',formato:'tear'},
 ];
 
 PageInit.simulator = () => {
-  // ─── STATE ───────────────────────────────────────
-  let params = { volume:250, diametro:11.5, altura:9.0, formato:'round', perfil:'mod', metodo:'sub', simetrico:true };
-  let showBefore = false;
-  let dragState = null;
-  let rotY = 0;
+  // ── STATE ──────────────────────────────────────────
+  let photos = [null,null,null]; // base64 of each uploaded photo
+  let currentView = 0; // 0=front,1=right,2=left
+  let showAfter = true;
+  let simZoom = 1;
+  let P = { volume:250, diam:11.5, alt:9.0, formato:'round', perfil:'mod', metodo:'sub', simetrico:true };
+  // Overlay position relative to photo (percent of image dimensions)
+  let overlayPos = { cx: 50, cy: 42 }; // center of breast area as % of image
+  let overlayDragState = null;
 
-  // ─── RENDER BODY ─────────────────────────────────
-  function renderBreast() {
-    const canvas = document.getElementById('body-canvas');
-    if (!canvas) return;
+  // ── PHOTO UPLOAD ───────────────────────────────────
+  window.triggerFileInput = (i) => document.getElementById('file-input-'+i).click();
 
-    const vol   = params.volume;
-    const diam  = params.diametro;
-    const perf  = params.perfil;
-    const fmt   = params.formato;
-    const meto  = params.metodo;
+  window.handleFileSelect = function(evt, i) {
+    const file = evt.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => setPhoto(i, e.target.result);
+    reader.readAsDataURL(file);
+  };
 
-    // Scale breast size from volume
-    const scale = 0.7 + (vol / 800) * 1.0;
-    const baseRx = 38 * scale;
-    const baseRy = fmt === 'teardrop' ? baseRx * 0.85 : baseRx * 0.88;
-    // Profile affects projection (vertical)
-    const projMult = {low:0.75, mod:1.0, high:1.25, xhigh:1.4}[perf] || 1.0;
-    const ry = baseRy * projMult;
-    // Method affects position
-    const posYOffset = meto === 'sub' ? 4 : 0;
+  window.handleDrop = function(evt, i) {
+    evt.preventDefault();
+    const file = evt.dataTransfer.files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = e => setPhoto(i, e.target.result);
+    reader.readAsDataURL(file);
+  };
 
-    const cx = 200; // canvas center
-    // Breast centers
-    const bL = {cx: cx - 52, cy: 165 + posYOffset, rx: baseRx, ry};
-    const bR = {cx: cx + 52, cy: 165 + posYOffset, rx: params.simetrico ? baseRx : baseRx*0.95, ry: params.simetrico ? ry : ry*0.97};
-
-    // Skin tone gradient
-    const skinBase = showBefore ? 'rgba(210,168,130,.9)' : 'rgba(210,168,130,.95)';
-    const implantFill = showBefore ? 'rgba(210,168,130,.95)' : `rgba(210,168,130,1)`;
-    const implantHighlight = 'rgba(255,220,180,.35)';
-    const shadowFill = 'rgba(100,60,30,.25)';
-
-    // Teardrop path helper
-    function teardropPath(cx, cy, rx, ry) {
-      const top = cy - ry * 0.6;
-      const bot = cy + ry * 0.55;
-      return `M ${cx},${top} 
-              C ${cx+rx},${top} ${cx+rx*1.1},${cy} ${cx+rx*0.95},${bot} 
-              C ${cx+rx*0.5},${bot+ry*0.15} ${cx-rx*0.5},${bot+ry*0.15} ${cx-rx*0.95},${bot} 
-              C ${cx-rx*1.1},${cy} ${cx-rx},${top} ${cx},${top} Z`;
-    }
-
-    function breastPath(b) {
-      if (fmt === 'teardrop') return teardropPath(b.cx, b.cy, b.rx, b.ry);
-      return `M ${b.cx},${b.cy-b.ry} 
-              C ${b.cx+b.rx*1.1},${b.cy-b.ry} ${b.cx+b.rx},${b.cy+b.ry*0.5} ${b.cx+b.rx*0.8},${b.cy+b.ry*0.65}
-              C ${b.cx+b.rx*0.4},${b.cy+b.ry*0.95} ${b.cx-b.rx*0.4},${b.cy+b.ry*0.95} ${b.cx-b.rx*0.8},${b.cy+b.ry*0.65}
-              C ${b.cx-b.rx},${b.cy+b.ry*0.5} ${b.cx-b.rx*1.1},${b.cy-b.ry} ${b.cx},${b.cy-b.ry} Z`;
-    }
-
-    const svgH = 420;
-    const svgW = 400;
-
-    canvas.innerHTML = `
-    <svg viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <radialGradient id="skinGrad" cx="45%" cy="35%" r="60%">
-          <stop offset="0%" stop-color="rgba(240,195,155,1)"/>
-          <stop offset="70%" stop-color="${skinBase}"/>
-          <stop offset="100%" stop-color="rgba(175,120,85,.9)"/>
-        </radialGradient>
-        <radialGradient id="breastGradL" cx="35%" cy="30%" r="65%">
-          <stop offset="0%" stop-color="rgba(245,205,165,1)"/>
-          <stop offset="60%" stop-color="${implantFill}"/>
-          <stop offset="100%" stop-color="rgba(170,115,80,.95)"/>
-        </radialGradient>
-        <radialGradient id="breastGradR" cx="65%" cy="30%" r="65%">
-          <stop offset="0%" stop-color="rgba(245,205,165,1)"/>
-          <stop offset="60%" stop-color="${implantFill}"/>
-          <stop offset="100%" stop-color="rgba(170,115,80,.95)"/>
-        </radialGradient>
-        <radialGradient id="highlightL" cx="40%" cy="25%" r="40%">
-          <stop offset="0%" stop-color="${implantHighlight}"/>
-          <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-        </radialGradient>
-        <radialGradient id="highlightR" cx="60%" cy="25%" r="40%">
-          <stop offset="0%" stop-color="${implantHighlight}"/>
-          <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-        </radialGradient>
-        <filter id="blur2"><feGaussianBlur stdDeviation="2"/></filter>
-        <filter id="blur4"><feGaussianBlur stdDeviation="4"/></filter>
-        <clipPath id="bodyClip">
-          <path d="M 90,0 Q ${svgW/2},0 ${svgW-90},0 L ${svgW-60},${svgH} L 60,${svgH} Z"/>
-        </clipPath>
-      </defs>
-
-      <!-- BODY TORSO -->
-      <!-- Neck -->
-      <path d="M ${cx-22},0 Q ${cx-18},0 ${cx-16},20 L ${cx+16},20 Q ${cx+18},0 ${cx+22},0 Z" fill="url(#skinGrad)"/>
-      <!-- Shoulder left -->
-      <path d="M 0,80 Q 40,60 ${cx-60},95 Q ${cx-75},110 ${cx-70},130 L ${cx-62},130 Q ${cx-65},110 ${cx-55},98 Q 45,70 10,88 Z" fill="url(#skinGrad)"/>
-      <!-- Shoulder right -->
-      <path d="M ${svgW},80 Q ${svgW-40},60 ${cx+60},95 Q ${cx+75},110 ${cx+70},130 L ${cx+62},130 Q ${cx+65},110 ${cx+55},98 Q ${svgW-45},70 ${svgW-10},88 Z" fill="url(#skinGrad)"/>
-
-      <!-- TORSO MAIN -->
-      <path d="M ${cx-16},20 
-               Q ${cx-14},18 ${cx},18 Q ${cx+14},18 ${cx+16},20
-               Q ${cx+55},28 ${cx+72},55
-               Q ${cx+95},80 ${cx+95},120
-               L ${cx+88},${svgH-20}
-               Q ${cx+50},${svgH} ${cx},${svgH}
-               Q ${cx-50},${svgH} ${cx-88},${svgH-20}
-               L ${cx-95},120
-               Q ${cx-95},80 ${cx-72},55
-               Q ${cx-55},28 ${cx-16},20 Z"
-            fill="url(#skinGrad)"/>
-
-      <!-- STERNUM shadow -->
-      <path d="M ${cx},45 Q ${cx+3},110 ${cx+2},${bL.cy+bL.ry+10}" stroke="rgba(140,90,55,.2)" stroke-width="1.5" fill="none" filter="url(#blur2)"/>
-
-      <!-- BREAST SHADOWS (under) -->
-      <ellipse cx="${bL.cx+5}" cy="${bL.cy+bL.ry-2}" rx="${bL.rx*0.8}" ry="8" fill="${shadowFill}" filter="url(#blur4)" opacity="${0.5+scale*0.2}"/>
-      <ellipse cx="${bR.cx-5}" cy="${bR.cy+bR.ry-2}" rx="${bR.rx*0.8}" ry="8" fill="${shadowFill}" filter="url(#blur4)" opacity="${0.5+scale*0.2}"/>
-
-      <!-- BREASTS -->
-      <path d="${breastPath(bL)}" fill="url(#breastGradL)" opacity="${showBefore ? 0.7 : 1}"/>
-      <path d="${breastPath(bR)}" fill="url(#breastGradR)" opacity="${showBefore ? 0.7 : 1}"/>
-
-      <!-- BREAST HIGHLIGHTS -->
-      <path d="${breastPath(bL)}" fill="url(#highlightL)" opacity="${showBefore ? 0.3 : 0.6}"/>
-      <path d="${breastPath(bR)}" fill="url(#highlightR)" opacity="${showBefore ? 0.3 : 0.6}"/>
-
-      <!-- NIPPLES -->
-      <circle cx="${bL.cx-3}" cy="${bL.cy+bL.ry*0.12}" r="${3.5+scale}" fill="rgba(170,100,70,.7)"/>
-      <circle cx="${bR.cx+3}" cy="${bR.cy+bR.ry*0.12}" r="${3.5+scale}" fill="rgba(170,100,70,.7)"/>
-      <circle cx="${bL.cx-3}" cy="${bL.cy+bL.ry*0.12}" r="${1.8+scale*0.5}" fill="rgba(140,75,55,.8)"/>
-      <circle cx="${bR.cx+3}" cy="${bR.cy+bR.ry*0.12}" r="${1.8+scale*0.5}" fill="rgba(140,75,55,.8)"/>
-
-      <!-- COLLARBONE hint -->
-      <path d="M ${cx-16},22 Q ${cx-40},18 ${cx-65},30" stroke="rgba(160,110,75,.3)" stroke-width="1" fill="none"/>
-      <path d="M ${cx+16},22 Q ${cx+40},18 ${cx+65},30" stroke="rgba(160,110,75,.3)" stroke-width="1" fill="none"/>
-
-      <!-- BEFORE label overlay -->
-      ${showBefore ? `<rect x="0" y="0" width="${svgW}" height="${svgH}" fill="rgba(0,0,0,0)" />
-      <text x="${svgW/2}" y="30" font-size="10" fill="rgba(255,255,255,.5)" text-anchor="middle" font-family="var(--mono)">ANTES</text>` : ''}
-
-      <!-- Volume badge -->
-      ${!showBefore ? `<text x="${svgW/2}" y="${svgH-10}" font-size="9" fill="rgba(255,255,255,.3)" text-anchor="middle" font-family="var(--mono)">${vol}cc · Ø${diam}cm · ${['Submuscular','Subglandular','Dual Plane'][['sub','subg','dual'].indexOf(meto)]||'Submuscular'}</text>` : ''}
-    </svg>`;
-
-    // Show implant position badge
-    const badge = document.getElementById('implant-pos-badge');
-    if (badge) badge.style.display = !showBefore ? 'block' : 'none';
-
-    // Show before/after button once model is loaded
-    const baBtn = document.getElementById('sim-before-label');
-    if (baBtn) baBtn.style.display = 'block';
+  function setPhoto(i, src) {
+    photos[i] = src;
+    const preview = document.getElementById('preview-'+i);
+    const placeholder = document.getElementById('upload-placeholder-'+i);
+    const check = document.getElementById('upload-check-'+i);
+    const box = document.getElementById('upload-box-'+i);
+    if (preview) { preview.src = src; preview.style.display = 'block'; }
+    if (placeholder) placeholder.style.display = 'none';
+    if (check) { check.style.removeProperty('display'); check.style.display = 'flex'; }
+    if (box) box.style.borderColor = 'var(--pron)';
+    checkUploadReady();
   }
 
-  // ─── PARAM CONTROLS ──────────────────────────────
-  window.adjustParam = function(key, delta) {
-    if (key === 'volume')   { params.volume   = Math.max(100, Math.min(800, params.volume + delta)); document.getElementById('vol-slider').value = params.volume; document.getElementById('vol-display').textContent = params.volume + ' cc'; }
-    if (key === 'diametro') { params.diametro = Math.max(8, Math.min(16, +(params.diametro + delta).toFixed(1))); document.getElementById('diam-slider').value = params.diametro; document.getElementById('diam-display').textContent = params.diametro.toString().replace('.',',') + ' cm'; }
-    if (key === 'altura')   { params.altura   = Math.max(6, Math.min(14, +(params.altura + delta).toFixed(1)));   document.getElementById('alt-slider').value  = params.altura;   document.getElementById('alt-display').textContent  = params.altura.toString().replace('.',',')   + ' cm'; }
-    renderBreast();
+  function checkUploadReady() {
+    const ready = photos.filter(Boolean).length >= 1; // at least 1 photo
+    const btn = document.getElementById('btn-gerar-3d');
+    if (btn) { btn.disabled = !ready; btn.style.opacity = ready ? '1' : '.4'; btn.style.cursor = ready ? 'pointer' : 'not-allowed'; }
+  }
+
+  window.useDemoPhotos = function() {
+    // Use placeholder skin-tone gradients as demo
+    const canvas = document.createElement('canvas');
+    canvas.width = 400; canvas.height = 600;
+    const ctx = canvas.getContext('2d');
+    // Draw a simple body silhouette as demo
+    const grd = ctx.createLinearGradient(0,0,400,600);
+    grd.addColorStop(0,'#c8a882'); grd.addColorStop(1,'#a87855');
+    ctx.fillStyle = grd; ctx.fillRect(0,0,400,600);
+    // Basic torso shape
+    ctx.fillStyle = 'rgba(200,160,110,.9)';
+    ctx.beginPath(); ctx.ellipse(200,300,120,200,0,0,Math.PI*2); ctx.fill();
+    const demoSrc = canvas.toDataURL('image/jpeg',0.8);
+    [0,1,2].forEach(i => setPhoto(i, demoSrc));
   };
 
-  window.setParamSlider = function(key, val) {
-    if (key === 'volume')   { params.volume   = +val; document.getElementById('vol-display').textContent  = val + ' cc'; }
-    if (key === 'diametro') { params.diametro = +val; document.getElementById('diam-display').textContent = (+val).toString().replace('.',',') + ' cm'; }
-    if (key === 'altura')   { params.altura   = +val; document.getElementById('alt-display').textContent  = (+val).toString().replace('.',',') + ' cm'; }
-    renderBreast();
+  // ── GENERATE 3D ────────────────────────────────────
+  window.startGenerate3D = function() {
+    document.getElementById('sim-step-upload').style.display = 'none';
+    const proc = document.getElementById('sim-step-processing');
+    proc.style.removeProperty('display'); proc.style.display = 'flex';
+
+    // Show photo previews
+    const pv = document.getElementById('proc-previews');
+    if (pv) pv.innerHTML = photos.filter(Boolean).map(src=>`<img src="${src}" style="width:70px;height:100px;object-fit:cover;border-radius:8px;border:2px solid var(--border)">`).join('');
+
+    const steps = [
+      [15,'Analisando fotografias...'],
+      [30,'Detectando pontos anatômicos...'],
+      [50,'Construindo malha 3D...'],
+      [65,'Calibrando proporções corporais...'],
+      [80,'Aplicando textura fotorrealista...'],
+      [92,'Optimizando modelo...'],
+      [100,'Modelo 3D criado com sucesso! ✓'],
+    ];
+    let idx = 0;
+    const iv = setInterval(() => {
+      if (idx >= steps.length) { clearInterval(iv); setTimeout(enterViewer, 500); return; }
+      const [pct, txt] = steps[idx++];
+      const bar = document.getElementById('proc-bar');
+      const step = document.getElementById('proc-step');
+      if (bar) bar.style.width = pct+'%';
+      if (step) step.textContent = txt;
+      if (pct===100) { document.getElementById('proc-icon').textContent='✅'; document.getElementById('proc-title').textContent='Modelo 3D pronto!'; }
+    }, 500);
   };
 
-  window.setImplantParam = function(key, val) {
-    params[key] = val;
-    refreshSelectionStyles();
-    renderBreast();
-  };
+  function enterViewer() {
+    document.getElementById('sim-step-processing').style.display = 'none';
+    const viewer = document.getElementById('sim-step-viewer');
+    viewer.style.removeProperty('display'); viewer.style.display = 'flex';
+    document.getElementById('sim-topbar-actions').style.removeProperty('display');
+    document.getElementById('sim-topbar-actions').style.display = 'flex';
+    document.getElementById('implant-info-badge').style.display = 'block';
+    document.getElementById('overlay-drag-handle').style.display = 'block';
 
-  window.toggleSymmetry = function() {
-    params.simetrico = !params.simetrico;
-    const toggle = document.getElementById('sym-toggle');
-    const thumb  = document.getElementById('sym-thumb');
-    if (toggle) toggle.style.background = params.simetrico ? 'var(--sim)' : 'var(--border)';
-    if (thumb)  thumb.style.transform   = params.simetrico ? 'translateX(18px)' : 'translateX(0)';
-    renderBreast();
-  };
+    // Load first photo
+    loadViewPhoto(0);
+    buildViewThumbs();
+    updateAllDisplays();
+    updateOverlay();
+  }
 
-  function refreshSelectionStyles() {
-    // Formato
-    ['round','oval','teardrop'].forEach(k => {
-      const el = document.getElementById('fmtico-'+k);
-      if (el) { el.style.borderColor = params.formato===k ? 'var(--sim)' : 'var(--border)'; el.style.color = params.formato===k ? 'var(--sim)' : 'var(--muted)'; el.style.background = params.formato===k ? 'rgba(167,139,250,.1)' : ''; }
-      const el2 = document.getElementById('fmt-'+k);
-      if (el2) { el2.style.borderColor = params.formato===k ? 'var(--sim)' : 'var(--border)'; el2.style.background = params.formato===k ? 'rgba(167,139,250,.1)' : ''; }
+  function loadViewPhoto(idx) {
+    currentView = idx;
+    const img = document.getElementById('sim-photo-base');
+    if (!img) return;
+    const src = photos[idx] || photos[0];
+    if (!src) return;
+    img.src = src;
+    img.onload = () => { updateOverlay(); };
+    // Highlight active thumb
+    [0,1,2].forEach(i => {
+      const th = document.getElementById('vthumb-'+i);
+      if (th) th.style.borderColor = i===idx ? 'var(--sim)' : 'var(--border)';
     });
-    // Perfil
-    ['low','mod','high','xhigh'].forEach(k => {
-      const el = document.getElementById('perfil-'+k);
-      if (el) { el.style.borderColor = params.perfil===k ? 'var(--sim)' : 'var(--border)'; el.style.color = params.perfil===k ? 'var(--sim)' : 'var(--muted)'; el.style.background = params.perfil===k ? 'rgba(167,139,250,.1)' : ''; }
+  }
+
+  function buildViewThumbs() {
+    const container = document.getElementById('view-thumbs');
+    if (!container) return;
+    const labels = ['Frontal','Lat. D','Lat. E'];
+    container.innerHTML = photos.map((src,i)=> src ? `
+    <div id="vthumb-${i}" onclick="switchView(${i})" style="cursor:pointer;border:2px solid ${i===0?'var(--sim)':'var(--border)'};border-radius:8px;overflow:hidden;transition:border-color .15s">
+      <img src="${src}" style="width:44px;height:60px;object-fit:cover;display:block"/>
+      <div style="font-size:8px;color:var(--muted);text-align:center;padding:2px;background:rgba(0,0,0,.5)">${labels[i]}</div>
+    </div>` : '').join('');
+  }
+
+  window.switchView = (i) => loadViewPhoto(i);
+
+  // ── OVERLAY RENDERING ──────────────────────────────
+  function updateOverlay() {
+    const img = document.getElementById('sim-photo-base');
+    const overlay = document.getElementById('implant-overlay');
+    if (!img || !overlay || !img.naturalWidth) return;
+
+    if (!showAfter) { overlay.style.display = 'none'; return; }
+    overlay.style.display = 'block';
+
+    // Calculate breast positions based on overlayPos (% of image)
+    const W = 400, H = 600; // SVG viewBox
+    const cx = (overlayPos.cx/100) * W;
+    const cy = (overlayPos.cy/100) * H;
+
+    const vol = P.volume;
+    const perf = P.perfil;
+    const fmt = P.formato;
+
+    // Base radius from volume
+    const baseR = 28 + (vol-100)/700 * 45;
+    const projMult = {low:0.7,mod:1.0,high:1.3,xh:1.55}[perf] || 1;
+    const rx = baseR * ({round:1.0,oval:0.9,tear:0.85}[fmt]||1);
+    const ry = baseR * projMult * ({round:0.88,oval:1.0,tear:1.1}[fmt]||0.88);
+
+    const gap = 50; // gap between breasts
+    const bL = {x: cx - gap/2, y: cy};
+    const bR = {x: cx + gap/2, y: cy};
+    const symFactor = P.simetrico ? 1 : 0.93;
+
+    function roundPath(x, y, rx2, ry2) {
+      return `M ${x},${y-ry2} C ${x+rx2*1.1},${y-ry2} ${x+rx2},${y+ry2*0.5} ${x+rx2*0.8},${y+ry2*0.7} C ${x+rx2*0.4},${y+ry2} ${x-rx2*0.4},${y+ry2} ${x-rx2*0.8},${y+ry2*0.7} C ${x-rx2},${y+ry2*0.5} ${x-rx2*1.1},${y-ry2} ${x},${y-ry2} Z`;
+    }
+    function tearPath(x, y, rx2, ry2) {
+      const top = y - ry2*0.55, bot = y + ry2*0.55;
+      return `M ${x},${top} C ${x+rx2},${top} ${x+rx2*1.1},${y} ${x+rx2*0.9},${bot} C ${x+rx2*0.45},${bot+ry2*0.15} ${x-rx2*0.45},${bot+ry2*0.15} ${x-rx2*0.9},${bot} C ${x-rx2*1.1},${y} ${x-rx2},${top} ${x},${top} Z`;
+    }
+
+    const pathFn = fmt === 'tear' ? tearPath : roundPath;
+    const pL = pathFn(bL.x, bL.y, rx, ry);
+    const pR = pathFn(bR.x, bR.y, rx*symFactor, ry*symFactor);
+
+    document.getElementById('implL').setAttribute('d', pL);
+    document.getElementById('implR').setAttribute('d', pR);
+    document.getElementById('highlL').setAttribute('d', pL);
+    document.getElementById('highlR').setAttribute('d', pR);
+    document.getElementById('shadL').setAttribute('cx', bL.x); document.getElementById('shadL').setAttribute('cy', bL.y+ry+3);
+    document.getElementById('shadL').setAttribute('rx', rx*0.75);
+    document.getElementById('shadR').setAttribute('cx', bR.x); document.getElementById('shadR').setAttribute('cy', bR.y+ry*symFactor+3);
+    document.getElementById('shadR').setAttribute('rx', rx*0.75*symFactor);
+  }
+
+  // ── OVERLAY DRAG ───────────────────────────────────
+  window.startOverlayDrag = function(e) {
+    e.stopPropagation();
+    const img = document.getElementById('sim-photo-base');
+    if (!img) return;
+    const rect = img.getBoundingClientRect();
+    overlayDragState = { startX: e.clientX, startY: e.clientY, startCx: overlayPos.cx, startCy: overlayPos.cy, w: rect.width, h: rect.height };
+    document.onmousemove = function(ev) {
+      if (!overlayDragState) return;
+      const dx = ev.clientX - overlayDragState.startX;
+      const dy = ev.clientY - overlayDragState.startY;
+      overlayPos.cx = Math.max(20, Math.min(80, overlayDragState.startCx + (dx/overlayDragState.w)*100));
+      overlayPos.cy = Math.max(20, Math.min(70, overlayDragState.startCy + (dy/overlayDragState.h)*100));
+      updateOverlay();
+    };
+    document.onmouseup = function() { overlayDragState = null; document.onmousemove = null; document.onmouseup = null; };
+  };
+
+  // ── PARAM CONTROLS ─────────────────────────────────
+  window.adj = function(key, delta) {
+    if (key==='volume') { P.volume  = Math.max(100,Math.min(800,P.volume+delta)); document.getElementById('s-vol').value=P.volume; document.getElementById('d-vol').textContent=P.volume+' cc'; }
+    if (key==='diam')   { P.diam    = Math.max(8,Math.min(16,+(P.diam+delta).toFixed(1)));  document.getElementById('s-diam').value=P.diam;   document.getElementById('d-diam').textContent=P.diam.toString().replace('.',',')+' cm'; }
+    if (key==='alt')    { P.alt     = Math.max(6,Math.min(14,+(P.alt+delta).toFixed(1)));   document.getElementById('s-alt').value=P.alt;    document.getElementById('d-alt').textContent=P.alt.toString().replace('.',',')+' cm'; }
+    updateOverlay(); updateBadge();
+  };
+
+  window.sliderP = function(key, val) {
+    if (key==='volume') { P.volume=+val; document.getElementById('d-vol').textContent=val+' cc'; }
+    if (key==='diam')   { P.diam=+val;   document.getElementById('d-diam').textContent=(+val).toString().replace('.',',')+' cm'; }
+    if (key==='alt')    { P.alt=+val;    document.getElementById('d-alt').textContent=(+val).toString().replace('.',',')+' cm'; }
+    updateOverlay(); updateBadge();
+  };
+
+  window.setP = function(key, val) {
+    P[key] = val;
+    refreshStyles(); updateOverlay(); updateBadge();
+  };
+
+  window.toggleSym = function() {
+    P.simetrico = !P.simetrico;
+    const tog = document.getElementById('sym-tog');
+    const thb = document.getElementById('sym-thumb');
+    if (tog) tog.style.background = P.simetrico ? 'var(--sim)' : 'var(--border)';
+    if (thb) thb.style.transform  = P.simetrico ? 'translateX(16px)' : 'translateX(0)';
+    updateOverlay();
+  };
+
+  function refreshStyles() {
+    ['round','oval','tear'].forEach(k => {
+      const a=document.getElementById('fmt-'+k), b=document.getElementById('fico-'+k);
+      [a,b].forEach(el => { if(!el)return; el.style.borderColor=P.formato===k?'var(--sim)':'var(--border)'; el.style.color=P.formato===k?'var(--sim)':'var(--muted)'; el.style.background=P.formato===k?'rgba(167,139,250,.1)':''; });
     });
-    // Método
+    ['low','mod','high','xh'].forEach(k => {
+      const el=document.getElementById('pfil-'+k);
+      if(el){el.style.borderColor=P.perfil===k?'var(--sim)':'var(--border)'; el.style.color=P.perfil===k?'var(--sim)':'var(--muted)'; el.style.background=P.perfil===k?'rgba(167,139,250,.1)':'';}
+    });
     ['sub','subg','dual'].forEach(k => {
-      const el = document.getElementById('met-'+k);
-      if (el) { el.style.borderColor = params.metodo===k ? 'var(--sim)' : 'var(--border)'; el.style.background = params.metodo===k ? 'rgba(167,139,250,.1)' : ''; }
+      const el=document.getElementById('met-'+k);
+      if(el){el.style.borderColor=P.metodo===k?'var(--sim)':'var(--border)'; el.style.background=P.metodo===k?'rgba(167,139,250,.1)':'';}
     });
   }
-  window.refreshFmtStyle = refreshSelectionStyles;
 
-  // ─── BEFORE / AFTER ──────────────────────────────
-  window.toggleBeforeAfter = function() {
-    showBefore = !showBefore;
-    const btn = document.getElementById('ba-btn');
-    if (btn) { btn.style.background = showBefore ? 'rgba(167,139,250,.3)' : 'rgba(0,0,0,.6)'; btn.textContent = showBefore ? '◑ A VER: ANTES' : '◑ ANTES / DEPOIS'; }
-    renderBreast();
+  function updateBadge() {
+    const labels = {low:'Baixo',mod:'Moderado',high:'Alto',xh:'Extra alto'};
+    const bv=document.getElementById('badge-vol'), bd=document.getElementById('badge-diam'), bp=document.getElementById('badge-perf');
+    if(bv) bv.textContent=P.volume+' cc'; if(bd) bd.textContent='Ø '+P.diam+' cm'; if(bp) bp.textContent='Perfil '+labels[P.perfil];
+  }
+
+  function updateAllDisplays() { refreshStyles(); updateBadge(); }
+
+  // ── BEFORE / AFTER ─────────────────────────────────
+  window.setBeforeAfter = function(mode) {
+    showAfter = mode==='depois';
+    const a=document.getElementById('ba-antes'), b=document.getElementById('ba-depois');
+    if(a){a.style.background=!showAfter?'rgba(255,255,255,.9)':'rgba(255,255,255,.3)'; a.style.color=!showAfter?'#000':'rgba(255,255,255,.6)';}
+    if(b){b.style.background=showAfter?'rgba(167,139,250,.9)':'rgba(167,139,250,.3)'; b.style.color=showAfter?'white':'rgba(255,255,255,.5)';}
+    updateOverlay();
   };
 
-  // ─── DRAG TO ROTATE ──────────────────────────────
-  window.simDragStart = function(e) { dragState = {x: e.clientX, ry: rotY}; document.getElementById('body-3d-wrap').style.cursor = 'grabbing'; };
-  window.simDragMove  = function(e) {
-    if (!dragState) return;
-    rotY = dragState.ry + (e.clientX - dragState.x) * 0.4;
-    const wrap = document.getElementById('body-canvas');
-    if (wrap) wrap.style.transform = `rotateY(${rotY}deg)`;
-  };
-  window.simDragEnd   = function() { dragState = null; document.getElementById('body-3d-wrap').style.cursor = 'grab'; };
-
-  // ─── SECTION TOGGLE ──────────────────────────────
-  window.toggleSection = function(key) {
-    const body  = document.getElementById(key+'-body');
-    const arrow = document.getElementById(key+'-arrow');
-    if (!body) return;
-    const open = body.style.display !== 'none';
-    body.style.display  = open ? 'none' : 'block';
-    if (arrow) arrow.textContent = open ? '+' : '−';
-  };
-
-  // ─── TABS ─────────────────────────────────────────
+  // ── TABS ───────────────────────────────────────────
   window.setSimTab = function(tab) {
-    document.getElementById('sim-panel-proc').style.display  = tab==='proc'  ? 'block' : 'none';
+    document.getElementById('sim-panel-proc').style.display  = tab==='proc'  ? 'flex' : 'none';
     document.getElementById('sim-panel-tools').style.display = tab==='tools' ? 'block' : 'none';
     ['proc','tools'].forEach(t => {
-      const btn = document.getElementById('simtab-'+t);
-      if (btn) { btn.style.background = t===tab ? 'var(--s2)' : 'transparent'; btn.style.borderBottom = t===tab ? '2px solid var(--sim)' : 'none'; btn.style.color = t===tab ? 'var(--text)' : 'var(--muted)'; }
+      const btn=document.getElementById('simtab-'+t);
+      if(btn){btn.style.background=t===tab?'var(--s2)':'transparent'; btn.style.borderBottomColor=t===tab?'var(--sim)':'transparent'; btn.style.color=t===tab?'var(--text)':'var(--muted)';}
     });
   };
 
-  // ─── VIEW MODE ───────────────────────────────────
-  window.setViewMode = function(mode) {
-    ['VR','2D','3D'].forEach(m => {
-      const btn = document.getElementById('vmode-'+m);
-      if (btn) { btn.style.background = m===mode ? 'var(--s3)' : ''; btn.style.color = m===mode ? 'var(--text)' : ''; }
+  // ── SECTION TOGGLE ─────────────────────────────────
+  window.toggleSection = function(k) {
+    const body=document.getElementById(k+'-body'), arr=document.getElementById(k+'-arr');
+    if(!body)return; const open=body.style.display!=='none';
+    body.style.display=open?'none':'block'; if(arr)arr.textContent=open?'+':'−';
+  };
+
+  // ── VIEW MODE ──────────────────────────────────────
+  window.setViewMode = function(m) {
+    ['VR','2D','3D'].forEach(v=>{const b=document.getElementById('vmode-'+v);if(b){b.style.background=v===m?'var(--s3)':'';b.style.color=v===m?'var(--text)':'';}});
+  };
+
+  // ── ZOOM ───────────────────────────────────────────
+  window.zoomSim = function(delta) {
+    simZoom = Math.max(0.5, Math.min(3, simZoom+delta));
+    const wrap=document.getElementById('photo-sim-wrap');
+    if(wrap) wrap.style.transform=`scale(${simZoom})`;
+  };
+
+  // ── RESET ──────────────────────────────────────────
+  window.resetSimulator = function() {
+    photos=[null,null,null];
+    document.getElementById('sim-step-viewer').style.display='none';
+    document.getElementById('sim-step-upload').style.removeProperty('display');
+    document.getElementById('sim-step-upload').style.display='flex';
+    document.getElementById('sim-topbar-actions').style.display='none';
+    document.getElementById('implant-info-badge').style.display='none';
+    document.getElementById('overlay-drag-handle').style.display='none';
+    [0,1,2].forEach(i=>{
+      const pr=document.getElementById('preview-'+i), pl=document.getElementById('upload-placeholder-'+i);
+      const ck=document.getElementById('upload-check-'+i), bx=document.getElementById('upload-box-'+i);
+      if(pr){pr.style.display='none';pr.src='';} if(pl)pl.style.display='flex';
+      if(ck)ck.style.display='none'; if(bx)bx.style.borderColor='var(--border)';
     });
+    checkUploadReady();
   };
 
-  window.setAngle = function(i) {
-    const angles = [0, -45, 0, 45, 0];
-    rotY = angles[i];
-    const wrap = document.getElementById('body-canvas');
-    if (wrap) wrap.style.transform = `rotateY(${rotY}deg)`;
+  // ── CATALOG ────────────────────────────────────────
+  window.openCatalog = function(){const m=document.getElementById('cat-modal');if(m){m.style.removeProperty('display');m.style.display='flex';}renderCat(IMPL_CATALOG);};
+  window.closeCatalog= function(){const m=document.getElementById('cat-modal');if(m)m.style.display='none';};
+  window.filterCat   = function(q){
+    const query=(q||document.querySelector('#cat-modal input')?.value||'').toLowerCase();
+    const brand=document.getElementById('cat-brand')?.value||'';
+    renderCat(IMPL_CATALOG.filter(i=>(!query||i.name.toLowerCase().includes(query)||i.code.toLowerCase().includes(query))&&(!brand||i.brand===brand)));
   };
-
-  // ─── CATALOG ─────────────────────────────────────
-  window.openCatalog = function() {
-    const modal = document.getElementById('catalog-modal');
-    if (modal) { modal.style.removeProperty('display'); modal.style.display = 'flex'; }
-    renderCatalogItems(IMPLANT_CATALOG);
-  };
-  window.closeCatalog = function() {
-    const modal = document.getElementById('catalog-modal');
-    if (modal) modal.style.display = 'none';
-  };
-  window.filterCatalog = function(q) {
-    const query = (q || document.getElementById('catalog-search')?.value || '').toLowerCase();
-    const brand = document.getElementById('catalog-brand')?.value || '';
-    const filtered = IMPLANT_CATALOG.filter(i =>
-      (!query || i.name.toLowerCase().includes(query) || i.code.toLowerCase().includes(query)) &&
-      (!brand || i.brand === brand)
-    );
-    renderCatalogItems(filtered);
-  };
-  function renderCatalogItems(items) {
-    const list = document.getElementById('catalog-list');
-    const cnt  = document.getElementById('catalog-count');
-    if (!list) return;
-    if (cnt) cnt.textContent = items.length + ' resultados';
-    list.innerHTML = items.map(item => `
-    <div onclick="selectImplantFromCatalog(${item.vol},${item.diam},${item.proj},'${item.perfil}','${item.formato}')"
-         style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:border-color .15s"
-         onmouseover="this.style.borderColor='var(--sim)'" onmouseout="this.style.borderColor='var(--border)'">
+  function renderCat(items){
+    const list=document.getElementById('cat-list'), cnt=document.getElementById('cat-cnt');
+    if(cnt)cnt.textContent=items.length+' resultados';
+    if(!list)return;
+    const perfs={low:'Baixo',mod:'Moderado',high:'Alto',xh:'Extra alto'};
+    const fmts={round:'⬤ Redondo',oval:'⬭ Oval',tear:'▽ Teardrop'};
+    list.innerHTML=items.map(it=>`
+    <div onclick="pickImplant(${it.vol},${it.diam},'${it.perfil}','${it.formato}')" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='var(--sim)'" onmouseout="this.style.borderColor='var(--border)'">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
-          <div style="font-size:11px;font-weight:600">${item.name}</div>
-          <div style="font-size:9px;color:var(--muted);margin-top:2px">${item.brand} · ${item.code}</div>
-        </div>
-        <span style="font-size:9px;background:rgba(167,139,250,.12);color:var(--sim);padding:2px 7px;border-radius:4px;font-family:var(--mono)">${item.vol}cc</span>
+        <div><div style="font-size:11px;font-weight:600">${it.name}</div><div style="font-size:9px;color:var(--muted);margin-top:2px">${it.brand} · ${it.code}</div></div>
+        <span style="font-size:9px;background:rgba(167,139,250,.12);color:var(--sim);padding:2px 7px;border-radius:4px;font-family:var(--mono)">${it.vol}cc</span>
       </div>
       <div style="display:flex;gap:10px;margin-top:8px;font-size:10px;color:var(--muted)">
-        <span>Ø <strong style="color:var(--text)">${item.diam}cm</strong></span>
-        <span>Proj <strong style="color:var(--text)">${item.proj}cm</strong></span>
-        <span>Perfil <strong style="color:var(--text)">${{low:'Baixo',mod:'Moderado',high:'Alto',xhigh:'Extra alto'}[item.perfil]}</strong></span>
-        <span>${{round:'⬤ Redondo',oval:'⬭ Oval',teardrop:'▽ Teardrop'}[item.formato]}</span>
+        <span>Ø <b style="color:var(--text)">${it.diam}cm</b></span>
+        <span>Proj <b style="color:var(--text)">${it.proj}cm</b></span>
+        <span>Perfil <b style="color:var(--text)">${perfs[it.perfil]||it.perfil}</b></span>
+        <span>${fmts[it.formato]||it.formato}</span>
       </div>
     </div>`).join('');
   }
-  window.selectImplantFromCatalog = function(vol, diam, proj, perfil, formato) {
-    params.volume = vol; params.diametro = diam; params.perfil = perfil; params.formato = formato;
-    document.getElementById('vol-slider').value  = vol;   document.getElementById('vol-display').textContent  = vol + ' cc';
-    document.getElementById('diam-slider').value = diam;  document.getElementById('diam-display').textContent = diam.toString().replace('.',',') + ' cm';
-    refreshSelectionStyles();
-    renderBreast();
-    closeCatalog();
+  window.pickImplant=function(vol,diam,perf,fmt){
+    P.volume=vol; P.diam=diam; P.perfil=perf; P.formato=fmt;
+    document.getElementById('s-vol').value=vol; document.getElementById('d-vol').textContent=vol+' cc';
+    document.getElementById('s-diam').value=diam; document.getElementById('d-diam').textContent=diam.toString().replace('.',',')+' cm';
+    refreshStyles(); updateOverlay(); updateBadge(); closeCatalog();
   };
 
-  // ─── EXPORT / SHARE ──────────────────────────────
-  window.simShare = function() { const btn = document.querySelector('[onclick="simShare()"]'); if(btn){const o=btn.textContent;btn.textContent='✓ Link copiado!';setTimeout(()=>btn.textContent=o,2000);} };
-  window.simPDF   = function() { const btn = document.querySelector('[onclick="simPDF()"]');   if(btn){const o=btn.textContent;btn.textContent='⏳ A gerar...';setTimeout(()=>btn.textContent=o,2000);} };
-  window.simExport= function() {
-    const svg = document.querySelector('#body-canvas svg');
-    if (!svg) return;
-    const blob = new Blob([svg.outerHTML], {type:'image/svg+xml'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'simulacao-mama.svg'; a.click();
+  // ── EXPORT / SHARE ─────────────────────────────────
+  window.simToolAction=function(t){console.log('Tool:',t);};
+  window.simShare=function(){const b=document.querySelector('[onclick="simShare()"]');if(b){const o=b.textContent;b.textContent='✓ Link copiado!';setTimeout(()=>b.textContent=o,2000);}};
+  window.simPDF=function(){const b=document.querySelector('[onclick="simPDF()"]');if(b){const o=b.textContent;b.textContent='⏳ A gerar...';setTimeout(()=>b.textContent=o,2000);}};
+  window.simExport=function(){
+    const img=document.getElementById('sim-photo-base');
+    const overlay=document.getElementById('implant-overlay');
+    if(!img||!overlay)return;
+    const canvas=document.createElement('canvas');
+    canvas.width=img.naturalWidth||400; canvas.height=img.naturalHeight||600;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    const a=document.createElement('a'); a.href=canvas.toDataURL('image/jpeg',.92); a.download='simulacao-mama.jpg'; a.click();
   };
 
-  // ─── INIT ─────────────────────────────────────────
-  refreshSelectionStyles();
-  renderBreast();
-  document.getElementById('sim-before-label').style.display = 'block';
-
-  // Patient label
-  const sel = AppData?.patients?.[0];
-  if (sel) { const lbl = document.getElementById('sim-patient-label'); if(lbl) lbl.textContent = sel.name; }
-
-  // 3D CSS perspective
-  const body3d = document.getElementById('body-3d-wrap');
-  if (body3d) { body3d.parentElement.style.perspective = '800px'; body3d.style.transformStyle = 'preserve-3d'; }
+  // ── INIT ───────────────────────────────────────────
+  document.getElementById('sim-panel-proc').style.display='flex';
+  document.getElementById('sim-panel-proc').style.flexDirection='column';
+  document.getElementById('sim-step-upload').style.display='flex';
 };
 
 
