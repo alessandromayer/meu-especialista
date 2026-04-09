@@ -1427,25 +1427,27 @@ PageInit.crm = (opts) => {
 };
 
 // =============================================
-// 3. SIMULATOR 3D
+// =============================================
+// 3. SIMULATOR 3D — Motor SVG Dinâmico
 // =============================================
 PageRenderers.simulator = () => `
 <div class="page">
   <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
     <div>
       <div class="page-title">Simulador 3D</div>
-      <div class="page-sub">Motor de IA generativa · Mama · Rosto · Corpo</div>
+      <div class="page-sub">Motor SVG · Mama · Rosto · Corpo · Antes/Depois</div>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn btn-ghost btn-sm">Galeria de casos</button>
-      <button class="btn btn-sim btn-sm">Exportar simulação</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportSimPNG()">⬇ Exportar PNG</button>
+      <button class="btn btn-sim btn-sm" onclick="saveSim()">💾 Guardar simulação</button>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:260px 1fr 260px;gap:16px;height:calc(100vh - 200px);min-height:500px">
+  <div style="display:grid;grid-template-columns:260px 1fr 260px;gap:16px;height:calc(100vh - 200px);min-height:520px">
 
     <!-- LEFT CONTROLS -->
-    <div style="display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+    <div style="display:flex;flex-direction:column;gap:14px;overflow-y:auto;padding-right:4px">
+
       <!-- PATIENT SELECT -->
       <div class="card">
         <div class="card-header"><span class="card-title">Paciente</span></div>
@@ -1466,15 +1468,15 @@ PageRenderers.simulator = () => `
         <div class="card-header"><span class="card-title">Tipo de simulação</span></div>
         <div style="padding:12px;display:flex;flex-direction:column;gap:6px">
           ${[
-            ['breast','🫁','Mama','Aumento, redução, ptose'],
-            ['face','👤','Rosto','Rinoplastia, lábios, queixo'],
-            ['body','🫀','Corpo','Lipo, abdomino, gluteo'],
+            ['breast','🫁','Mama','Aumento · Redução · Ptose'],
+            ['face','👤','Rosto','Rinoplastia · Lábios · Queixo'],
+            ['body','🏃','Corpo','Lipo · Abdomino · Glúteo'],
           ].map(([type,icon,label,sub]) => `
-          <div id="simtype-${type}" onclick="selectSimType('${type}')" style="background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:11px;cursor:pointer;transition:all .2s">
+          <div id="simtype-${type}" onclick="selectSimType('${type}')" style="background:var(--s2);border:1.5px solid var(--border);border-radius:9px;padding:11px;cursor:pointer;transition:all .2s">
             <div style="display:flex;align-items:center;gap:9px">
-              <span style="font-size:16px">${icon}</span>
+              <span style="font-size:18px">${icon}</span>
               <div>
-                <div style="font-size:12px;font-weight:500">${label}</div>
+                <div style="font-size:12px;font-weight:600">${label}</div>
                 <div style="font-size:10px;color:var(--muted)">${sub}</div>
               </div>
             </div>
@@ -1482,8 +1484,8 @@ PageRenderers.simulator = () => `
         </div>
       </div>
 
-      <!-- PARAMETERS -->
-      <div class="card" id="sim-params">
+      <!-- PARAMS -->
+      <div class="card" id="sim-params" style="flex:1">
         <div class="card-header"><span class="card-title">Parâmetros</span></div>
         <div style="padding:14px" id="sim-params-body">
           <div style="font-size:11px;color:var(--muted);text-align:center;padding:20px 0">Selecione o tipo de simulação</div>
@@ -1491,351 +1493,549 @@ PageRenderers.simulator = () => `
       </div>
     </div>
 
-    <!-- CENTER: 3D CANVAS -->
+    <!-- CENTER CANVAS -->
     <div style="display:flex;flex-direction:column;gap:12px">
-      <!-- UPLOAD / CANVAS -->
       <div class="card" style="flex:1;display:flex;flex-direction:column">
-        <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border)">
-          <div style="display:flex;gap:4px">
+        <!-- VIEW TOOLBAR -->
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;gap:4px" id="view-btns">
             ${['Anterior','Lateral D','Lateral E','Posterior'].map((v,i)=>`
             <button id="view-btn-${i}" onclick="setView(${i})" class="btn btn-ghost btn-sm" style="font-size:10px;padding:4px 9px;${i===0?'background:var(--s3);color:var(--text)':''}">${v}</button>`).join('')}
           </div>
           <div style="flex:1"></div>
-          <div style="font-size:10px;color:var(--muted);font-family:var(--mono)" id="sim-mode-label">MODO UPLOAD</div>
-          <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="toggleCompare()">◑ Comparar</button>
+          <button id="compare-btn" class="btn btn-ghost btn-sm" style="font-size:10px" onclick="toggleCompare()">◑ Antes/Depois</button>
+          <span style="font-size:10px;color:var(--muted);font-family:var(--mono)" id="sim-mode-label">AGUARDA TIPO</span>
         </div>
-        <div style="flex:1;position:relative;background:var(--s2);border-radius:0 0 14px 14px;overflow:hidden;display:flex;align-items:center;justify-content:center" id="sim-viewport">
-          <!-- UPLOAD STATE -->
-          <div id="upload-state" style="text-align:center;padding:40px">
-            <div style="font-size:40px;margin-bottom:16px">📷</div>
-            <div style="font-size:14px;font-weight:500;margin-bottom:8px">Carregue 3 fotos para gerar o modelo 3D</div>
-            <div style="font-size:11px;color:var(--muted);margin-bottom:20px">Frontal · Lateral direita · Lateral esquerda</div>
-            <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px">
-              ${['Frontal','Lateral D','Lateral E'].map((v,i) => `
-              <div id="upload-slot-${i}" onclick="simulateUpload(${i})" style="width:80px;height:100px;border:1.5px dashed var(--border);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:all .2s;font-size:10px;color:var(--muted)" onmouseover="this.style.borderColor='var(--sim)'" onmouseout="this.style.borderColor=this.dataset.filled?'var(--pron)':'var(--border)'">
-                <span style="font-size:20px">+</span>${v}
-              </div>`).join('')}
-            </div>
-            <button class="btn btn-sim" id="generate-btn" style="display:none" onclick="generateModel()">
-              ✨ Gerar Modelo 3D com IA
-            </button>
-          </div>
-          <!-- MODEL STATE (hidden initially) -->
-          <div id="model-state" style="display:none;width:100%;height:100%;position:relative">
-            <canvas id="sim-3d-canvas" style="width:100%;height:100%"></canvas>
-            <div id="sim-3d-fallback" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
-              <div id="body-model-render" style="position:relative">
-                <!-- Dynamic body render -->
-              </div>
-            </div>
-            <!-- COMPARE OVERLAY (hidden) -->
-            <div id="compare-overlay" style="display:none;position:absolute;inset:0;display:flex">
-              <div style="flex:1;border-right:2px solid var(--sim);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--s2)">
-                <div style="position:absolute;top:8px;left:10px;font-size:9px;background:rgba(45,106,159,.15);color:var(--text2);padding:2px 7px;border-radius:4px;font-family:var(--mono)">ANTES</div>
-                <svg viewBox="0 0 120 180" width="120" height="180" fill="none">
-                  <rect x="35" y="20" width="50" height="140" rx="25" fill="rgba(52,211,153,.06)" stroke="var(--border)" stroke-width="1.2"/>
-                </svg>
-              </div>
-              <div style="flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--s2)">
-                <div style="position:absolute;top:8px;left:10px;font-size:9px;background:rgba(45,106,159,.15);color:var(--crm);padding:2px 7px;border-radius:4px;font-family:var(--mono)">DEPOIS</div>
-                <div id="compare-after-model"></div>
-              </div>
-            </div>
-          </div>
-          <!-- GENERATING OVERLAY -->
-          <div id="generating-overlay" style="display:none;position:absolute;inset:0;background:rgba(7,9,15,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px">
-            <div id="gen-spinner" style="width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--sim);border-radius:50%"></div>
-            <div style="font-size:13px;font-weight:500">Gerando modelo 3D com IA...</div>
-            <div id="gen-progress-bar" style="width:200px;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
-              <div id="gen-bar-fill" style="height:100%;width:0%;background:var(--sim);transition:width .3s;border-radius:2px"></div>
-            </div>
-            <div id="gen-step" style="font-size:10px;color:var(--muted);font-family:var(--mono)">Analisando pontos faciais...</div>
-          </div>
-        </div>
-      </div>
 
-      <!-- BOTTOM CONTROLS -->
-      <div class="card">
-        <div style="padding:12px 16px;display:flex;align-items:center;gap:12px">
-          <button class="btn btn-ghost btn-sm" onclick="resetSim()">↩ Resetar</button>
-          <div style="flex:1;display:flex;gap:8px;align-items:center">
-            <span style="font-size:10px;color:var(--muted)">Zoom</span>
-            <input type="range" min="50" max="200" value="100" style="flex:1;accent-color:var(--sim)" id="zoom-slider">
-            <span id="zoom-val" style="font-size:10px;font-family:var(--mono);color:var(--muted);min-width:32px">100%</span>
+        <!-- VIEWPORT -->
+        <div style="flex:1;position:relative;background:linear-gradient(135deg,var(--s2) 0%,var(--bg) 100%);overflow:hidden;display:flex;align-items:center;justify-content:center" id="sim-viewport">
+
+          <!-- IDLE STATE -->
+          <div id="idle-state" style="text-align:center;padding:40px;opacity:.6">
+            <div style="font-size:48px;margin-bottom:12px">🫁</div>
+            <div style="font-size:13px;font-weight:500">Selecione o tipo de simulação</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px">Use os controlos à esquerda</div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="App.navigate('prontuario')">Vincular ao prontuário</button>
-          <button class="btn btn-sim btn-sm" id="save-sim-btn" onclick="saveSim()">💾 Guardar simulação</button>
+
+          <!-- SVG MODEL (hidden initially) -->
+          <div id="model-state" style="display:none;width:100%;height:100%;position:relative;display:none">
+            <div id="sim3d-shell" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:grab" 
+                 onmousedown="startDrag(event)" onmousemove="onDrag(event)" onmouseup="stopDrag()" onmouseleave="stopDrag()">
+              <div id="body-svg-wrap" style="transform-origin:center;transition:transform .05s"></div>
+            </div>
+
+            <!-- COMPARE DIVIDER -->
+            <div id="compare-overlay" style="display:none;position:absolute;inset:0;pointer-events:none">
+              <div id="before-panel" style="position:absolute;inset:0;overflow:hidden;clip-path:inset(0 50% 0 0)">
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+                  <div id="before-svg-wrap"></div>
+                </div>
+                <div style="position:absolute;top:10px;left:12px;background:rgba(0,0,0,.45);color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-family:var(--mono)">ANTES</div>
+              </div>
+              <div id="after-panel" style="position:absolute;inset:0;overflow:hidden;clip-path:inset(0 0 0 50%)">
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+                  <div id="after-svg-wrap"></div>
+                </div>
+                <div style="position:absolute;top:10px;right:12px;background:rgba(167,139,250,.5);color:#fff;font-size:9px;padding:2px 8px;border-radius:4px;font-family:var(--mono)">DEPOIS</div>
+              </div>
+              <div id="compare-divider" style="position:absolute;top:0;bottom:0;left:50%;width:3px;background:white;opacity:.8;cursor:ew-resize;pointer-events:all"
+                   onmousedown="startCompareDrag(event)"></div>
+            </div>
+
+            <!-- GENERATING OVERLAY -->
+            <div id="gen-overlay" style="display:none;position:absolute;inset:0;background:rgba(7,9,15,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px">
+              <div style="width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--sim);border-radius:50%;animation:spin 1s linear infinite"></div>
+              <div style="font-size:13px;font-weight:500">A processar modelo...</div>
+              <div style="width:220px;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
+                <div id="gen-bar" style="height:100%;width:0%;background:var(--sim);transition:width .4s;border-radius:2px"></div>
+              </div>
+              <div id="gen-step" style="font-size:10px;color:var(--muted);font-family:var(--mono)">Iniciando...</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- BOTTOM BAR -->
+        <div style="padding:10px 14px;display:flex;align-items:center;gap:10px;border-top:1px solid var(--border)">
+          <button class="btn btn-ghost btn-sm" onclick="resetSim()">↩ Reset</button>
+          <span style="font-size:10px;color:var(--muted)">Zoom</span>
+          <input type="range" min="60" max="180" value="100" style="width:120px;accent-color:var(--sim)" id="zoom-slider">
+          <span id="zoom-val" style="font-size:10px;font-family:var(--mono);color:var(--muted);min-width:30px">100%</span>
+          <div style="flex:1"></div>
+          <button class="btn btn-ghost btn-sm" onclick="App.navigate('prontuario')">📋 Vincular prontuário</button>
         </div>
       </div>
     </div>
 
-    <!-- RIGHT: HISTORY + SHARE -->
+    <!-- RIGHT PANEL -->
     <div style="display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+
+      <!-- NOTES -->
       <div class="card">
-        <div class="card-header"><span class="card-title">Notas da simulação</span></div>
+        <div class="card-header"><span class="card-title">Notas</span></div>
         <div style="padding:12px">
-          <textarea class="input textarea" placeholder="Anotações para esta simulação..." style="font-size:11px;min-height:100px"></textarea>
+          <textarea class="input textarea" placeholder="Anotações desta simulação..." style="font-size:11px;min-height:90px"></textarea>
         </div>
       </div>
-      <div class="card" id="sim-share-card">
+
+      <!-- SHARE -->
+      <div class="card">
         <div class="card-header">
           <span class="card-title">Partilha com paciente</span>
           <span id="sim-share-badge" style="font-size:10px;padding:2px 9px;border-radius:20px;font-weight:600;background:rgba(248,113,113,.12);color:var(--danger);font-family:var(--mono)">● PRIVADA</span>
         </div>
         <div style="padding:14px">
-          <!-- LEGAL DISCLAIMER -->
-          <div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:11px;color:#fbbf24;line-height:1.6">
-            ⚖️ <strong>Atenção legal:</strong> A simulação é uma representação artística, não uma garantia de resultado. Partilhe apenas após o paciente assinar o termo de consentimento.
+          <div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);border-radius:10px;padding:11px;margin-bottom:14px;font-size:11px;color:#fbbf24;line-height:1.6">
+            ⚖️ <strong>Aviso legal:</strong> Simulação é representação artística, não garantia de resultado.
           </div>
-          <!-- TOGGLE -->
-          <div style="display:flex;align-items:center;justify-content:space-between;background:var(--s2);border-radius:12px;padding:13px 14px;margin-bottom:12px;border:1px solid var(--border)">
+          <div style="display:flex;align-items:center;justify-content:space-between;background:var(--s2);border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid var(--border)">
             <div>
-              <div style="font-size:12px;font-weight:600" id="sim-toggle-label">Visível no app do paciente</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px" id="sim-toggle-sub">Activa para partilhar a simulação</div>
+              <div style="font-size:12px;font-weight:600" id="sim-toggle-label">Visível ao paciente</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px" id="sim-toggle-sub">Activar para partilhar</div>
             </div>
             <div id="sim-toggle" onclick="toggleSimShare()" style="width:44px;height:24px;border-radius:12px;background:var(--border);cursor:pointer;position:relative;transition:background .3s;flex-shrink:0">
               <div id="sim-toggle-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:white;transition:transform .3s"></div>
             </div>
           </div>
-          <!-- WHEN SHARED: show actions -->
-          <div id="sim-share-actions" style="display:none;flex-direction:column;gap:8px">
-            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Notificar paciente via:</div>
-            ${[['📱 WhatsApp','var(--pron)'],['✉️ Email','var(--crm)'],['🔗 Copiar link seguro','var(--sim)']].map(([label,color])=>`
-            <button class="btn btn-ghost btn-sm" style="justify-content:flex-start;color:${color};border-color:${color}22" onclick="showSimNotify('${label}')">${label}</button>`).join('')}
-            <div style="margin-top:6px;font-size:10px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);padding-top:8px">
-              📋 Certifique-se que o paciente assinou o <strong>Termo de Consentimento</strong> antes de partilhar.
-            </div>
+          <div id="sim-share-actions" style="display:none;flex-direction:column;gap:7px">
+            ${['📱 WhatsApp','✉️ Email','🔗 Copiar link'].map(ch=>`
+            <button class="btn btn-ghost btn-sm" onclick="showSimNotify('${ch}')" style="justify-content:flex-start;font-size:11px">${ch}</button>`).join('')}
           </div>
-          <!-- WHEN PRIVATE -->
-          <div id="sim-private-msg" style="text-align:center;padding:12px 0;font-size:11px;color:var(--muted);line-height:1.6">
-            🔒 Simulação privada — o paciente não tem acesso.<br>
-            Active para partilhar no app do paciente.
+          <div id="sim-private-msg" style="font-size:11px;color:var(--muted);text-align:center;padding:8px 0">
+            Active a partilha para enviar ao paciente
           </div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-header"><span class="card-title">Simulações recentes</span></div>
-        <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px">
-          ${DB.patients.filter(p => p.hasSimulation).slice(0,4).map(p => `
-          <div style="display:flex;align-items:center;gap:9px;padding:7px;border-radius:7px;cursor:pointer;background:var(--s2)" onclick="loadPatientSim(${p.id})">
-            <div style="width:36px;height:36px;border-radius:7px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center">${simIcon(p.simType, 28)}</div>
-            <div style="flex:1">
-              <div style="font-size:11px;font-weight:500">${p.name}</div>
-              <div style="font-size:10px;color:var(--muted)">${p.procedure}</div>
-            </div>
+
+      <!-- HISTORY -->
+      <div class="card" style="flex:1">
+        <div class="card-header"><span class="card-title">Histórico</span></div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:8px" id="sim-history">
+          ${AppData.patients.slice(0,3).map(p=>`
+          <div onclick="loadPatientSim('${p.id}')" style="background:var(--s2);border-radius:9px;padding:10px;cursor:pointer;border:1px solid var(--border);transition:border-color .2s" onmouseover="this.style.borderColor='var(--sim)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="font-size:11px;font-weight:600">${p.name}</div>
+            <div style="font-size:10px;color:var(--muted)">${p.procedure} · ${p.simType==='breast'?'🫁 Mama':p.simType==='face'?'👤 Rosto':'🏃 Corpo'}</div>
           </div>`).join('')}
         </div>
       </div>
+
     </div>
   </div>
 </div>`;
 
 PageInit.simulator = () => {
-  let uploadCount = 0;
+  // ─── STATE ───────────────────────────────────────
   let currentType = null;
+  let params = {};
+  let view = 0;             // 0=front,1=right,2=left,3=back
   let comparing = false;
+  let zoomLevel = 100;
+  let dragStart = null, rotX = 0, rotY = 0;
+  let compareDragging = false;
 
+  // ─── SVG GENERATORS ──────────────────────────────
+
+  function svgBreast(p, angle) {
+    const vol  = p.volume  || 400;  // 150-800cc
+    const proj = p.proj    || 60;   // 0-100
+    const asym = p.asym    || 50;   // 0-100 (50=symmetric)
+    const pos  = p.pos     || 50;   // placement 0-100
+    const flip = angle > 90 && angle < 270;
+
+    const bodyFill  = 'rgba(52,211,153,.07)';
+    const bodyStroke= 'var(--sim)';
+    const implFill  = `rgba(167,139,250,${0.15 + proj/500})`;
+    const implStroke= 'var(--sim)';
+
+    const baseR = 18 + vol/40;
+    const rL = baseR + (asym - 50)/10;
+    const rR = baseR - (asym - 50)/10;
+    const projY = 6 + proj/14;
+    const posY  = 115 + (pos - 50)/5;
+
+    const svgH = 280;
+    return `<svg viewBox="0 0 180 ${svgH}" width="180" height="${svgH}" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Body outline -->
+      <path d="M55,30 Q90,10 125,30 L135,90 Q130,150 120,200 L110,${svgH-10} L70,${svgH-10} L60,200 Q50,150 45,90 Z"
+            fill="${bodyFill}" stroke="${bodyStroke}" stroke-width="1"/>
+      <!-- Neck -->
+      <rect x="75" y="8" width="30" height="28" rx="14" fill="${bodyFill}" stroke="${bodyStroke}" stroke-width="1"/>
+      <!-- Head -->
+      <ellipse cx="90" cy="0" rx="22" ry="18" fill="${bodyFill}" stroke="${bodyStroke}" stroke-width="1" opacity=".5"/>
+      <!-- Waist lines -->
+      <path d="M50,160 Q90,155 130,160" stroke="${bodyStroke}" stroke-width=".7" opacity=".3"/>
+      <!-- Left implant -->
+      <ellipse cx="${flip?112:68}" cy="${posY}" rx="${rL}" ry="${rL*0.7+projY}" fill="${implFill}" stroke="${implStroke}" stroke-width="1.5" opacity=".9"/>
+      <!-- Right implant -->
+      <ellipse cx="${flip?68:112}" cy="${posY}" rx="${rR}" ry="${rR*0.7+projY}" fill="${implFill}" stroke="${implStroke}" stroke-width="1.5" opacity=".9"/>
+      <!-- Measurement guides -->
+      <line x1="68" y1="${posY-rL-4}" x2="112" y2="${posY-rR-4}" stroke="${bodyStroke}" stroke-width=".6" stroke-dasharray="3,3" opacity=".4"/>
+      <text x="88" y="${posY-rL-8}" font-size="8" fill="var(--sim)" text-anchor="middle" font-family="var(--mono)" opacity=".8">${vol}cc</text>
+      <!-- Incision indicator -->
+      <path d="M${flip?112:68},${posY+rL+2} Q90,${posY+Math.max(rL,rR)+8} ${flip?68:112},${posY+rR+2}"
+            stroke="rgba(248,113,113,.5)" stroke-width="1" stroke-dasharray="2,2"/>
+      <!-- Rotation hint -->
+      <text x="90" y="${svgH-4}" font-size="7" fill="var(--muted)" text-anchor="middle" font-family="var(--mono)" opacity=".5">⟵ ARRASTAR PARA RODAR ⟶</text>
+    </svg>`;
+  }
+
+  function svgFace(p, angle) {
+    const dorso = p.dorso || 40;   // 0-100
+    const ponta = p.ponta || 55;   // 0-100
+    const larg  = p.larg  || 50;   // 0-100
+    const labio = p.labio || 30;   // 0-100
+    const queixo= p.queixo|| 50;   // 0-100
+
+    const isProfile = (angle > 45 && angle < 135) || (angle > 225 && angle < 315);
+    const flipP = angle > 135 && angle < 315;
+
+    if (isProfile) {
+      // Profile view
+      const noseH = 28 + dorso/10;
+      const tipX  = flipP ? 55 : 125;
+      const noseX = flipP ? 65 : 115;
+      return `<svg viewBox="0 0 180 280" width="180" height="280" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Head profile -->
+        <path d="M90,20 Q${flipP?50:130},15 ${flipP?45:135},70 Q${flipP?40:140},110 ${flipP?50:130},150 Q${flipP?60:120},200 90,210 Q${flipP?80:100},220 90,230 L90,20 Z"
+              fill="rgba(52,211,153,.07)" stroke="var(--sim)" stroke-width="1.2"/>
+        <!-- Nose bridge -->
+        <path d="M90,70 Q${noseX},${70+noseH/2} ${tipX},${70+noseH}" 
+              fill="none" stroke="var(--sim)" stroke-width="2" stroke-linecap="round"/>
+        <!-- Nose tip highlight -->
+        <circle cx="${tipX}" cy="${70+noseH}" r="${4+ponta/25}" fill="rgba(167,139,250,.25)" stroke="var(--sim)" stroke-width="1.2"/>
+        <!-- Lips -->
+        <ellipse cx="90" cy="175" rx="${8+labio/12}" ry="${4+labio/30}" fill="rgba(167,139,250,.2)" stroke="var(--sim)" stroke-width="1"/>
+        <!-- Chin -->
+        <ellipse cx="90" cy="${200+queixo/15}" rx="12" ry="${5+queixo/20}" fill="rgba(167,139,250,.15)" stroke="var(--sim)" stroke-width="1" opacity=".7"/>
+        <text x="90" y="272" font-size="7" fill="var(--muted)" text-anchor="middle" font-family="var(--mono)" opacity=".5">PERFIL ${flipP?'ESQ':'DIR'}</text>
+      </svg>`;
+    }
+
+    // Front view
+    const noseW = 18 + larg/10;
+    const noseH2= 30 + dorso/8;
+    return `<svg viewBox="0 0 180 280" width="180" height="280" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Head -->
+      <ellipse cx="90" cy="100" rx="60" ry="75" fill="rgba(52,211,153,.07)" stroke="var(--sim)" stroke-width="1.2"/>
+      <!-- Eyes -->
+      <ellipse cx="68" cy="85" rx="10" ry="6" fill="rgba(52,211,153,.08)" stroke="var(--sim)" stroke-width="1"/>
+      <ellipse cx="112" cy="85" rx="10" ry="6" fill="rgba(52,211,153,.08)" stroke="var(--sim)" stroke-width="1"/>
+      <!-- Nose -->
+      <path d="M90,95 L${90-noseW/2},${95+noseH2} L${90+noseW/2},${95+noseH2}" 
+            fill="none" stroke="var(--sim)" stroke-width="1.2" stroke-linejoin="round"/>
+      <ellipse cx="90" cy="${95+noseH2}" rx="${noseW/2}" ry="${3+ponta/30}" fill="rgba(167,139,250,.2)" stroke="var(--sim)" stroke-width="1"/>
+      <!-- Lips -->
+      <path d="M${76},145 Q90,${140+labio/8} ${104},145 Q90,${155+labio/8} ${76},145" 
+            fill="rgba(167,139,250,.15)" stroke="var(--sim)" stroke-width="1.2"/>
+      <!-- Chin -->
+      <ellipse cx="90" cy="${165+queixo/15}" rx="18" ry="${6+queixo/20}" fill="rgba(167,139,250,.1)" stroke="var(--sim)" stroke-width=".8" opacity=".6"/>
+      <!-- Guide lines -->
+      <line x1="90" y1="30" x2="90" y2="175" stroke="var(--sim)" stroke-width=".5" stroke-dasharray="4,4" opacity=".3"/>
+      <text x="90" y="272" font-size="7" fill="var(--muted)" text-anchor="middle" font-family="var(--mono)" opacity=".5">FRONTAL · ROSTO</text>
+    </svg>`;
+  }
+
+  function svgBody(p, angle) {
+    const cintura = p.cintura || 60;  // 0-100
+    const quadril = p.quadril || 50;  // 0-100
+    const gluteo  = p.gluteo  || 40;  // 0-100
+    const abdom   = p.abdom   || 50;  // 0-100
+
+    const wCintura = 28 - cintura/8;
+    const wQuadril = 34 + quadril/8;
+    const glutRy   = 8 + gluteo/12;
+    const abdFill  = `rgba(52,211,153,${0.04 + abdom/1200})`;
+
+    return `<svg viewBox="0 0 180 300" width="180" height="300" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Body shape -->
+      <path d="M90,15 
+               Q${90+32},15 ${90+38},50 
+               L${90+wCintura},120
+               Q${90+wQuadril},150 ${90+wQuadril-4},175
+               L${90+20},290 L${90-20},290
+               L${90-wQuadril+4},175
+               Q${90-wQuadril},150 ${90-wCintura},120
+               L${90-38},50
+               Q${90-32},15 90,15 Z"
+            fill="${abdFill}" stroke="var(--sim)" stroke-width="1.2"/>
+      <!-- Head -->
+      <ellipse cx="90" cy="0" rx="22" ry="20" fill="rgba(52,211,153,.06)" stroke="var(--sim)" stroke-width="1" opacity=".7"/>
+      <!-- Waist marker -->
+      <line x1="${90-wCintura-5}" y1="120" x2="${90+wCintura+5}" y2="120" stroke="var(--sim)" stroke-width=".8" stroke-dasharray="3,3" opacity=".5"/>
+      <!-- Hip marker -->
+      <line x1="${90-wQuadril-4}" y1="162" x2="${90+wQuadril+4}" y2="162" stroke="var(--sim)" stroke-width=".8" stroke-dasharray="3,3" opacity=".5"/>
+      <!-- Gluteal highlight -->
+      <ellipse cx="${90-wQuadril/2-4}" cy="175" rx="16" ry="${glutRy}" fill="rgba(167,139,250,.18)" stroke="var(--sim)" stroke-width="1" opacity=".8"/>
+      <ellipse cx="${90+wQuadril/2+4}" cy="175" rx="16" ry="${glutRy}" fill="rgba(167,139,250,.18)" stroke="var(--sim)" stroke-width="1" opacity=".8"/>
+      <!-- Abdominal lines -->
+      ${abdom > 40 ? `
+      <line x1="${90-10}" y1="140" x2="${90+10}" y2="140" stroke="var(--sim)" stroke-width=".7" opacity="${abdom/200}"/>
+      <line x1="${90-12}" y1="155" x2="${90+12}" y2="155" stroke="var(--sim)" stroke-width=".7" opacity="${abdom/200}"/>
+      <line x1="90" y1="128" x2="90" y2="175" stroke="var(--sim)" stroke-width=".6" opacity="${abdom/250}"/>` : ''}
+      <!-- Measurements -->
+      <text x="8" y="124" font-size="8" fill="var(--sim)" text-anchor="start" font-family="var(--mono)" opacity=".7">${Math.round(65-cintura/4)}cm</text>
+      <text x="8" y="166" font-size="8" fill="var(--sim)" text-anchor="start" font-family="var(--mono)" opacity=".7">${Math.round(90+quadril/5)}cm</text>
+      <text x="90" y="295" font-size="7" fill="var(--muted)" text-anchor="middle" font-family="var(--mono)" opacity=".5">⟵ ARRASTAR PARA RODAR ⟶</text>
+    </svg>`;
+  }
+
+  // ─── RENDER MODEL ────────────────────────────────
+  function renderModel(showBefore) {
+    if (!currentType) return;
+    const wrap = showBefore
+      ? document.getElementById('before-svg-wrap')
+      : document.getElementById('body-svg-wrap');
+    if (!wrap) return;
+
+    const beforeParams = {}; // baseline = no modifications
+    const p = showBefore ? beforeParams : params;
+    const angle = ((rotY % 360) + 360) % 360;
+
+    let svg = '';
+    if (currentType === 'breast') svg = svgBreast(p, angle);
+    else if (currentType === 'face') svg = svgFace(p, angle);
+    else svg = svgBody(p, angle);
+
+    wrap.innerHTML = svg;
+    if (comparing) {
+      const aw = document.getElementById('after-svg-wrap');
+      if (aw) {
+        let svgA = '';
+        if (currentType === 'breast') svgA = svgBreast(params, angle);
+        else if (currentType === 'face') svgA = svgFace(params, angle);
+        else svgA = svgBody(params, angle);
+        aw.innerHTML = svgA;
+      }
+    }
+
+    // Apply zoom + rotation tilt
+    const shell = document.getElementById('sim3d-shell');
+    if (shell) shell.style.perspective = '600px';
+    wrap.style.transform = `scale(${zoomLevel/100}) rotateX(${rotX}deg)`;
+  }
+
+  // ─── SELECT TYPE ─────────────────────────────────
   window.selectSimType = function(type) {
     currentType = type;
+    params = {};
+
+    // Highlight selected
     document.querySelectorAll('[id^="simtype-"]').forEach(el => {
       el.style.borderColor = 'var(--border)';
-      el.style.background = 'var(--s2)';
+      el.style.background  = 'var(--s2)';
     });
     const el = document.getElementById('simtype-'+type);
     if (el) { el.style.borderColor = 'var(--sim)'; el.style.background = 'rgba(167,139,250,.08)'; }
 
-    const params = document.getElementById('sim-params-body');
-    if (!params) return;
-    const paramSets = {
-      breast: [['Volume implante','200cc','800cc','400cc'],['Projeção','0','100','60'],['Posição','0','100','50']],
-      face: [['Dorso nasal','0','100','40'],['Ponta nasal','0','100','55'],['Volume lábios','0','100','30']],
-      body: [['Áreas de lipo','0','100','50'],['Definição abdominal','0','100','35'],['Contorno cintura','0','100','60']],
+    // Build param sliders
+    const paramDefs = {
+      breast: [
+        ['volume', 'Volume implante (cc)', 150, 800, 400, 'cc'],
+        ['proj',   'Projecção',            0,   100,  60, '%'],
+        ['asym',   'Simetria',             0,   100,  50, '%'],
+        ['pos',    'Posição vertical',     0,   100,  50, '%'],
+      ],
+      face: [
+        ['dorso',  'Dorso nasal',    0, 100, 40, '%'],
+        ['ponta',  'Ponta nasal',    0, 100, 55, '%'],
+        ['larg',   'Largura nasal',  0, 100, 50, '%'],
+        ['labio',  'Volume lábios',  0, 100, 30, '%'],
+        ['queixo', 'Projecção queixo',0,100, 50, '%'],
+      ],
+      body: [
+        ['cintura', 'Cintura',           0, 100, 60, '%'],
+        ['quadril', 'Quadril',           0, 100, 50, '%'],
+        ['gluteo',  'Projecção glúteos', 0, 100, 40, '%'],
+        ['abdom',   'Definição abdominal',0,100, 50, '%'],
+      ],
     };
-    const set = paramSets[type] || [];
-    params.innerHTML = set.map(([label, min, max, val]) => `
+
+    const defs = paramDefs[type] || [];
+    defs.forEach(([key, , , , val]) => { params[key] = val; });
+
+    const pb = document.getElementById('sim-params-body');
+    if (pb) pb.innerHTML = defs.map(([key, label, min, max, val, unit]) => `
       <div style="margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;margin-bottom:5px">
           <span style="font-size:11px;color:var(--muted)">${label}</span>
-          <span style="font-size:10px;font-family:var(--mono);color:var(--sim)" id="param-val-${label.replace(/\s/g,'')}">${val}</span>
+          <span style="font-size:10px;font-family:var(--mono);color:var(--sim)" id="pv-${key}">${val}${unit}</span>
         </div>
         <input type="range" min="${min}" max="${max}" value="${val}" style="width:100%;accent-color:var(--sim)"
-          oninput="document.getElementById('param-val-${label.replace(/\s/g,'')}').textContent=this.value;updateModel()">
+          oninput="updateParam('${key}',this.value,'${unit}')">
       </div>`).join('');
+
+    // Show generate flow
+    generateModel();
   };
 
-  window.simulateUpload = function(i) {
-    const slot = document.getElementById('upload-slot-'+i);
-    if (!slot) return;
-    slot.style.background = 'var(--pron-dim)';
-    slot.style.borderColor = 'var(--pron)';
-    slot.dataset.filled = '1';
-    slot.innerHTML = '<span style="font-size:20px">✓</span><span style="font-size:10px;color:var(--pron)">Foto '+['F','D','E'][i]+'</span>';
-    uploadCount++;
-    if (uploadCount >= 2) {
-      const btn = document.getElementById('generate-btn');
-      if (btn) btn.style.display = 'inline-flex';
-    }
+  window.updateParam = function(key, val, unit) {
+    params[key] = +val;
+    const lbl = document.getElementById('pv-'+key);
+    if (lbl) lbl.textContent = val + unit;
+    renderModel(false);
   };
 
+  // ─── GENERATE ANIMATION ──────────────────────────
   window.generateModel = function() {
-    const genOverlay = document.getElementById('generating-overlay');
-    if (genOverlay) { genOverlay.style.display = 'flex'; }
-    const steps = ['Detectando pontos anatômicos...','Construindo malha 3D...','Aplicando textura...','Calibrando proporções...','Modelo pronto!'];
-    let step = 0, progress = 0;
-    const interval = setInterval(() => {
-      progress += 20;
-      const fill = document.getElementById('gen-bar-fill');
-      const stepEl = document.getElementById('gen-step');
-      const spinner = document.getElementById('gen-spinner');
-      if (fill) fill.style.width = progress + '%';
-      if (stepEl && steps[step]) stepEl.textContent = steps[step++];
-      if (progress >= 100) {
-        clearInterval(interval);
-        if (spinner) spinner.style.borderTopColor = 'var(--pron)';
+    const overlay = document.getElementById('gen-overlay');
+    const idle    = document.getElementById('idle-state');
+    const model   = document.getElementById('model-state');
+    if (overlay) { overlay.style.removeProperty('display'); overlay.style.display = 'flex'; }
+    if (idle)  idle.style.display  = 'none';
+    if (model) { model.style.removeProperty('display'); model.style.display = 'block'; }
+
+    const steps = ['Detectando pontos anatômicos...','Construindo geometria...','Calibrando proporções...','Aplicando parâmetros...','Modelo pronto ✓'];
+    let i = 0;
+    const iv = setInterval(() => {
+      const bar  = document.getElementById('gen-bar');
+      const step = document.getElementById('gen-step');
+      if (bar)  bar.style.width = ((i+1)*20) + '%';
+      if (step && steps[i]) step.textContent = steps[i];
+      i++;
+      if (i >= 5) {
+        clearInterval(iv);
         setTimeout(() => {
-          if (genOverlay) genOverlay.style.display = 'none';
-          document.getElementById('upload-state').style.display = 'none';
-          document.getElementById('model-state').style.display = 'block';
+          if (overlay) overlay.style.display = 'none';
           document.getElementById('sim-mode-label').textContent = 'MODELO 3D · INTERATIVO';
-          renderBodyModel('breast');
-        }, 600);
+          renderModel(false);
+        }, 400);
       }
-    }, 600);
+    }, 500);
   };
 
-  window.renderBodyModel = function(type) {
-    const el = document.getElementById('body-model-render');
-    if (!el) return;
-    el.innerHTML = `<div style="text-align:center">
-      <svg viewBox="0 0 200 300" width="200" height="300" fill="none">
-        <ellipse cx="100" cy="50" rx="30" ry="35" fill="rgba(167,139,250,.1)" stroke="var(--sim)" stroke-width="1"/>
-        <rect x="72" y="82" width="56" height="120" rx="10" fill="rgba(167,139,250,.06)" stroke="var(--sim)" stroke-width="1"/>
-        <ellipse cx="75" cy="130" rx="20" ry="15" fill="rgba(167,139,250,.2)" stroke="var(--sim)" stroke-width="1.5"/>
-        <ellipse cx="125" cy="130" rx="20" ry="15" fill="rgba(167,139,250,.2)" stroke="var(--sim)" stroke-width="1.5"/>
-        <line x1="50" y1="95" x2="25" y2="175" stroke="var(--sim)" stroke-width="1" opacity=".4"/>
-        <line x1="150" y1="95" x2="175" y2="175" stroke="var(--sim)" stroke-width="1" opacity=".4"/>
-        <line x1="75" y1="202" x2="65" y2="290" stroke="var(--sim)" stroke-width="1" opacity=".4"/>
-        <line x1="125" y1="202" x2="135" y2="290" stroke="var(--sim)" stroke-width="1" opacity=".4"/>
-        ${[0,30,60,90,120,150,180].map(a => {
-          const r = (a * Math.PI) / 180;
-          const x1 = 100 + 22*Math.cos(r), y1 = 130 + 16*Math.sin(r);
-          const x2 = 100 + 30*Math.cos(r), y2 = 130 + 22*Math.sin(r);
-          return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(167,139,250,.3)" stroke-width=".8"/>`;
-        }).join('')}
-      </svg>
-      <div style="font-size:9px;color:var(--sim);font-family:var(--mono);margin-top:4px;opacity:.7">MODELO 3D · ARRASTE PARA RODAR</div>
-    </div>`;
-    document.getElementById('compare-after-model').innerHTML = el.innerHTML;
+  // ─── DRAG TO ROTATE ──────────────────────────────
+  window.startDrag = function(e) { dragStart = { x: e.clientX, y: e.clientY, rx: rotX, ry: rotY }; };
+  window.onDrag    = function(e) {
+    if (!dragStart) return;
+    rotY = dragStart.ry + (e.clientX - dragStart.x) * 0.5;
+    rotX = Math.max(-30, Math.min(30, dragStart.rx - (e.clientY - dragStart.y) * 0.3));
+    renderModel(false);
   };
+  window.stopDrag  = function() { dragStart = null; };
 
-  window.updateModel = function() { /* param changes would update 3D */ };
-  window.resetSim = function() {
-    document.getElementById('upload-state').style.display = 'block';
-    document.getElementById('model-state').style.display = 'none';
-    uploadCount = 0;
-    [0,1,2].forEach(i => {
-      const slot = document.getElementById('upload-slot-'+i);
-      if (slot) { slot.innerHTML = '<span style="font-size:20px">+</span><span style="font-size:10px">'+['Frontal','Lateral D','Lateral E'][i]+'</span>'; slot.style.background=''; slot.style.borderColor='var(--border)'; delete slot.dataset.filled; }
-    });
-    const btn = document.getElementById('generate-btn');
-    if (btn) btn.style.display = 'none';
-  };
-
-  window.toggleCompare = function() {
-    comparing = !comparing;
-    const ov = document.getElementById('compare-overlay');
-    if (ov) ov.style.display = comparing ? 'flex' : 'none';
-  };
-
+  // ─── VIEW BUTTONS ────────────────────────────────
   window.setView = function(i) {
+    view = i;
     document.querySelectorAll('[id^="view-btn-"]').forEach(el => { el.style.background=''; el.style.color='var(--muted)'; });
     const btn = document.getElementById('view-btn-'+i);
-    if (btn) { btn.style.background='var(--s3)'; btn.style.color='var(--text)'; }
+    if (btn) { btn.style.background = 'var(--s3)'; btn.style.color = 'var(--text)'; }
+    const angles = [0, 90, 270, 180];
+    rotY = angles[i];
+    renderModel(false);
   };
 
+  // ─── COMPARE ─────────────────────────────────────
+  window.toggleCompare = function() {
+    comparing = !comparing;
+    const ov  = document.getElementById('compare-overlay');
+    const btn = document.getElementById('compare-btn');
+    if (ov)  ov.style.display  = comparing ? 'block' : 'none';
+    if (btn) btn.style.background = comparing ? 'var(--sim-dim)' : '';
+    if (comparing) renderModel(false);
+  };
 
+  // Compare divider drag
+  window.startCompareDrag = function(e) {
+    compareDragging = true;
+    e.stopPropagation();
+    document.onmousemove = function(ev) {
+      if (!compareDragging) return;
+      const vp = document.getElementById('sim-viewport');
+      if (!vp) return;
+      const rect = vp.getBoundingClientRect();
+      const pct  = Math.max(10, Math.min(90, ((ev.clientX - rect.left) / rect.width) * 100));
+      document.getElementById('before-panel').style.clipPath = `inset(0 ${100-pct}% 0 0)`;
+      document.getElementById('after-panel').style.clipPath  = `inset(0 0 0 ${pct}%)`;
+      document.getElementById('compare-divider').style.left  = pct + '%';
+    };
+    document.onmouseup = function() { compareDragging = false; document.onmousemove = null; document.onmouseup = null; };
+  };
+
+  // ─── ZOOM ────────────────────────────────────────
+  const zs = document.getElementById('zoom-slider');
+  if (zs) zs.oninput = function() {
+    zoomLevel = +this.value;
+    document.getElementById('zoom-val').textContent = this.value + '%';
+    renderModel(false);
+  };
+
+  // ─── RESET ───────────────────────────────────────
+  window.resetSim = function() {
+    currentType = null;
+    params = {};
+    rotX = rotY = 0;
+    comparing = false;
+    document.getElementById('idle-state').style.display = 'block';
+    document.getElementById('model-state').style.display = 'none';
+    document.getElementById('compare-overlay').style.display = 'none';
+    document.getElementById('sim-mode-label').textContent = 'AGUARDA TIPO';
+    document.getElementById('sim-params-body').innerHTML = '<div style="font-size:11px;color:var(--muted);text-align:center;padding:20px 0">Selecione o tipo de simulação</div>';
+    document.querySelectorAll('[id^="simtype-"]').forEach(el => { el.style.borderColor='var(--border)'; el.style.background='var(--s2)'; });
+  };
+
+  // ─── LOAD PATIENT ────────────────────────────────
+  window.loadPatientSim = function(id) {
+    const p = AppData.patients.find(x => x.id == id || x.id === id);
+    if (!p) return;
+    selectSimType(p.simType || 'breast');
+  };
+
+  // ─── EXPORT ──────────────────────────────────────
+  window.exportSimPNG = function() {
+    const wrap = document.getElementById('body-svg-wrap');
+    if (!wrap || !wrap.innerHTML) { alert('Gere um modelo primeiro'); return; }
+    const svg   = wrap.querySelector('svg');
+    if (!svg) return;
+    const blob  = new Blob([svg.outerHTML], {type:'image/svg+xml'});
+    const url   = URL.createObjectURL(blob);
+    const a     = document.createElement('a');
+    a.href = url; a.download = 'simulacao-' + (currentType||'modelo') + '.svg';
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  // ─── SHARE ───────────────────────────────────────
   window.simSharedState = false;
-
   window.toggleSimShare = function() {
     window.simSharedState = !window.simSharedState;
-    const toggle = document.getElementById('sim-toggle');
-    const thumb  = document.getElementById('sim-toggle-thumb');
-    const badge  = document.getElementById('sim-share-badge');
-    const label  = document.getElementById('sim-toggle-label');
-    const sub    = document.getElementById('sim-toggle-sub');
-    const actions= document.getElementById('sim-share-actions');
-    const privMsg= document.getElementById('sim-private-msg');
-
+    const toggle  = document.getElementById('sim-toggle');
+    const thumb   = document.getElementById('sim-toggle-thumb');
+    const badge   = document.getElementById('sim-share-badge');
+    const actions = document.getElementById('sim-share-actions');
+    const privMsg = document.getElementById('sim-private-msg');
     if (window.simSharedState) {
       toggle.style.background = 'var(--pron)';
       thumb.style.transform   = 'translateX(20px)';
-      badge.textContent       = '● PARTILHADA';
-      badge.style.background  = 'rgba(52,211,153,.12)';
-      badge.style.color       = 'var(--pron)';
-      label.textContent       = 'Visível no app do paciente';
-      sub.textContent         = 'Paciente pode ver esta simulação';
-      actions.style.display   = 'flex';
-      privMsg.style.display   = 'none';
+      badge.textContent = '● PARTILHADA'; badge.style.background='rgba(52,211,153,.12)'; badge.style.color='var(--pron)';
+      actions.style.display = 'flex'; privMsg.style.display = 'none';
     } else {
       toggle.style.background = 'var(--border)';
       thumb.style.transform   = 'translateX(0)';
-      badge.textContent       = '● PRIVADA';
-      badge.style.background  = 'rgba(248,113,113,.12)';
-      badge.style.color       = 'var(--danger)';
-      label.textContent       = 'Visível no app do paciente';
-      sub.textContent         = 'Activa para partilhar a simulação';
-      actions.style.display   = 'none';
-      privMsg.style.display   = 'block';
+      badge.textContent = '● PRIVADA'; badge.style.background='rgba(248,113,113,.12)'; badge.style.color='var(--danger)';
+      actions.style.display = 'none'; privMsg.style.display = 'block';
     }
   };
-
-  window.showSimNotify = function(channel) {
-    const msgs = {
-      '📱 WhatsApp': 'WhatsApp aberto com mensagem pré-preenchida!',
-      '✉️ Email':    'Email enviado ao paciente!',
-      '🔗 Copiar link seguro': 'Link seguro copiado para a área de transferência!'
-    };
-    const btn = document.getElementById('save-sim-btn');
-    const origText = btn.textContent;
-    btn.textContent = '✓ ' + (msgs[channel] || 'Enviado!');
-    btn.style.background = 'var(--pron)';
-    setTimeout(() => { btn.textContent = origText; btn.style.background = ''; }, 2500);
-  };
-
-  window.saveSim = function() {
-    const btn = document.getElementById('save-sim-btn');
+  window.showSimNotify = function(ch) {
+    const btn = document.getElementById('save-sim-btn') || document.querySelector('.btn-sim');
     if (!btn) return;
-    btn.textContent = '✓ Guardado!';
-    btn.style.background = 'var(--pron)';
-    setTimeout(() => { btn.textContent = '💾 Guardar simulação'; btn.style.background = ''; }, 2000);
+    const orig = btn.textContent;
+    btn.textContent = '✓ Enviado!'; btn.style.background = 'var(--pron)';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 2500);
+  };
+  window.saveSim = function() {
+    const btns = document.querySelectorAll('.btn-sim');
+    btns.forEach(b => { const o=b.textContent; b.textContent='✓ Guardado!'; b.style.background='var(--pron)'; setTimeout(()=>{b.textContent=o;b.style.background='';},2000); });
   };
 
-  window.loadPatientSim = function(id) {
-    const p = DB.patients.find(x => x.id === id);
-    if (!p) return;
-    selectSimType(p.simType);
-    document.getElementById('upload-state').style.display = 'none';
-    document.getElementById('model-state').style.display = 'block';
-    renderBodyModel(p.simType);
-  };
-
-  const zoom = document.getElementById('zoom-slider');
-  if (zoom) zoom.oninput = function() { document.getElementById('zoom-val').textContent = this.value + '%'; };
-
-  const sel = document.getElementById('sim-patient-select');
-  if (sel) sel.onchange = function() {
-    const p = DB.patients.find(x => x.id == this.value);
-    const info = document.getElementById('sim-patient-info');
-    if (info && p) {
-      info.style.display = 'block';
-      document.getElementById('sim-patient-name').textContent = p.name;
-      document.getElementById('sim-patient-proc').textContent = p.procedure;
-      selectSimType(p.simType);
-    }
-  };
+  // Add spin keyframe if not present
+  if (!document.getElementById('sim-spin-style')) {
+    const s = document.createElement('style');
+    s.id = 'sim-spin-style';
+    s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(s);
+  }
 };
 
-// =============================================
+
 // 4. PRONTUÁRIO COM IA DE VOZ
 // =============================================
 PageRenderers.prontuario = () => `
