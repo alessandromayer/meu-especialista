@@ -1858,6 +1858,7 @@ Return ONLY valid JSON (no markdown, no extra text):
   "skin_g": <green>,
   "skin_b": <blue>,
   "cup_size": "<A|B|C|D|DD>",
+  "cup_cc": <estimated current breast volume in cc, e.g. A=120, B=220, C=330, D=450>,
   "notes": "<brief anatomical note>"
 }`}
         ]}]
@@ -1911,6 +1912,12 @@ Return ONLY valid JSON (no markdown, no extra text):
     setProgress(90,'A processar iluminação...','');
     await new Promise(r=>setTimeout(r,500));
     setProgress(100,'Pronto! ✓','');
+      // Set volume slider to current cup baseline so user starts from real size
+      const baseCCMap={A:120,B:220,C:330,D:450,DD:560};
+      const baseCC = aiData.cup_cc || baseCCMap[aiData.cup_size||'B'] || 220;
+      P.volume = baseCC;
+      const sv=document.getElementById('sv'); if(sv)sv.value=baseCC;
+      const dv=document.getElementById('dv'); if(dv)dv.textContent=baseCC+' cc';
     aiLog('✓ Simulação gerada com sucesso');
     await new Promise(r=>setTimeout(r,500));
 
@@ -1930,103 +1937,146 @@ Return ONLY valid JSON (no markdown, no extra text):
   }
 
   // ── CANVAS RENDERING ──────────────────────────────
+  // ── IMAGE WARP RENDERING ──────────────────────────
+  // Proper breast augmentation via pixel displacement (like Photoshop Liquify)
+  // Instead of drawing a blob on top, we WARP the actual photo pixels outward.
+
   function renderToCanvas(canvasId, photoIdx, withAugmentation){
     const canvas=document.getElementById(canvasId);
     if(!canvas)return;
     const img=baseImages[photoIdx];
     if(!img){canvas.width=400;canvas.height=600;return;}
 
-    canvas.width=img.naturalWidth;
-    canvas.height=img.naturalHeight;
+    // Work at reduced resolution for performance (max 900px wide)
+    const maxW=900;
+    const scale=Math.min(1, maxW/img.naturalWidth);
+    const W=Math.round(img.naturalWidth*scale);
+    const H=Math.round(img.naturalHeight*scale);
+
+    canvas.width=W; canvas.height=H;
     const ctx=canvas.getContext('2d');
+    ctx.drawImage(img,0,0,W,H);
 
-    // Draw original photo
-    ctx.drawImage(img,0,0);
+    if(!withAugmentation||!aiData) return;
+    if(photoIdx!==1&&photoIdx!==0) return; // only front/slight angle
 
-    if(!withAugmentation||!aiData)return;
+    // ── Params ──────────────────────────────────────
+    const vol=P.volume;
+    // Cup size to base cc (rough mapping)
+    const cupCC={A:120,B:220,C:330,D:450,DD:560}[aiData.cup_size||'B']||220;
+    // How much to inflate: 0 = no change, 1 = max
+    const inflation=Math.max(0, (vol-cupCC)/700);
 
-    const W=img.naturalWidth, H=img.naturalHeight;
+    const pm={low:.7,mod:1,high:1.3,xh:1.6}[P.perfil]||1;
+    // Total warp strength: profile affects forward projection
+    const warpStrength=inflation*pm * (P.formato==='tear'?0.9:1.0);
 
-    // Get AI-detected positions (convert % to pixels)
+    const sf=P.simetrico?1:.93;
+
+    // AI breast centers in canvas pixels
     const lx=(aiData.breast_left_x/100)*W;
     const ly=(aiData.breast_left_y/100)*H;
     const rx=(aiData.breast_right_x/100)*W;
     const ry=(aiData.breast_right_y/100)*H;
 
-    // Skin color from AI analysis
-    const sr=aiData.skin_r||200, sg=aiData.skin_g||160, sb=aiData.skin_b||130;
+    // Base radius from AI in canvas pixels
+    const bRx=(aiData.breast_radius_x/100)*W;
+    const bRy=(aiData.breast_radius_y/100)*H;
+    const baseRad=Math.max(bRx,bRy);
 
-    // Size based on volume
-    const vol=P.volume;
-    const sizeScale=0.7+(vol-100)/700*1.1;
-    const pm={low:.65,mod:1,high:1.35,xh:1.65}[P.perfil]||1;
-    const baseRx=(aiData.breast_radius_x/100)*W*sizeScale;
-    const baseRy=(aiData.breast_radius_y/100)*H*sizeScale;
-    const projRy=baseRy*pm;
-    const sf=P.simetrico?1:.94;
+    // Influence radius = how far the warp reaches
+    const influenceR=baseRad*1.8;
 
-    // Only show augmentation in photo mode for front view
-    if(photoIdx!==1&&photoIdx!==0)return;
+    // ── PIXEL WARP FUNCTION ─────────────────────────
+    // Uses inverse mapping: for each dest pixel, find source pixel
+    function warpBreast(cx, cy, radius, strength, asymX){
+      const srcData=ctx.getImageData(0,0,W,H);
+      const dst=ctx.createImageData(W,H);
+      dst.data.set(srcData.data); // start with copy
 
-    // Draw augmented breasts on canvas
-    function drawBreast(cx, cy, radX, radY, side){
-      ctx.save();
+      const infR=radius*1.8;
+      const x0=Math.max(0,Math.floor(cx-infR-2));
+      const x1=Math.min(W-1,Math.ceil(cx+infR+2));
+      const y0=Math.max(0,Math.floor(cy-infR-2));
+      const y1=Math.min(H-1,Math.ceil(cy+infR+2));
 
-      // Main breast gradient (matches skin)
-      const grd=ctx.createRadialGradient(
-        cx-radX*.2, cy-radY*.3, radX*.05,
-        cx, cy, Math.max(radX,radY)*1.1
-      );
-      grd.addColorStop(0,   `rgba(${Math.min(255,sr+30)},${Math.min(255,sg+25)},${Math.min(255,sb+20)},0.88)`);
-      grd.addColorStop(0.45,`rgba(${sr},${sg},${sb},0.82)`);
-      grd.addColorStop(0.75,`rgba(${Math.max(0,sr-20)},${Math.max(0,sg-18)},${Math.max(0,sb-15)},0.55)`);
-      grd.addColorStop(1,   `rgba(${Math.max(0,sr-35)},${Math.max(0,sg-30)},${Math.max(0,sb-25)},0.0)`);
+      for(let dy=y0;dy<=y1;dy++){
+        for(let dx=x0;dx<=x1;dx++){
+          const ddx=dx-cx, ddy=dy-cy;
 
-      // Draw breast ellipse (larger than original)
-      ctx.beginPath();
-      if(P.formato==='tear'){
-        // Teardrop — elongated bottom
-        ctx.ellipse(cx, cy+radY*.12, radX, radY*1.1, 0, 0, Math.PI*2);
-      } else if(P.formato==='oval'){
-        ctx.ellipse(cx, cy, radX*1.1, radY, 0, 0, Math.PI*2);
-      } else {
-        ctx.ellipse(cx, cy, radX, radY, 0, 0, Math.PI*2);
+          // Elliptical distance (account for breast shape)
+          // Squash Y by aspect ratio for natural oval shape
+          const ex=P.formato==='oval'?1.15:1;
+          const ey=P.formato==='tear'?1.12:0.92;
+          const edx=ddx/(radius*ex), edy=ddy/(radius*ey);
+          const dist=Math.sqrt(edx*edx+edy*edy);
+
+          if(dist>1.0) continue; // outside influence zone
+
+          // Smooth falloff: smooth hermite curve
+          const t=1-dist;
+          const w=t*t*(3-2*t); // smoothstep
+
+          // Inflation amount at this pixel
+          const bulge=w*strength*asymX;
+
+          // Inverse displacement: where in source does this dest pixel come from?
+          // If bulge pushes pixels outward, source is closer to center
+          const srcX=cx+ddx/(1+bulge);
+          const srcY=cy+ddy/(1+bulge);
+
+          // Bounds check
+          const ix=Math.floor(srcX), iy=Math.floor(srcY);
+          if(ix<0||iy<0||ix>=W-1||iy>=H-1) continue;
+
+          // Bilinear interpolation
+          const fx=srcX-ix, fy=srcY-iy;
+          const i00=(iy*W+ix)*4;
+          const i10=(iy*W+ix+1)*4;
+          const i01=((iy+1)*W+ix)*4;
+          const i11=((iy+1)*W+ix+1)*4;
+          const di=(dy*W+dx)*4;
+
+          const d=srcData.data;
+          for(let c=0;c<4;c++){
+            dst.data[di+c]=
+              d[i00+c]*(1-fx)*(1-fy)+
+              d[i10+c]*fx*(1-fy)+
+              d[i01+c]*(1-fx)*fy+
+              d[i11+c]*fx*fy;
+          }
+        }
       }
-      ctx.fillStyle=grd;
-      ctx.fill();
-
-      // Highlight (upper area)
-      const hGrd=ctx.createRadialGradient(
-        cx-radX*.25, cy-radY*.35, 0,
-        cx-radX*.25, cy-radY*.35, radX*.65
-      );
-      hGrd.addColorStop(0,`rgba(255,245,240,0.22)`);
-      hGrd.addColorStop(1,`rgba(255,255,255,0)`);
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, radX, radY, 0, 0, Math.PI*2);
-      ctx.fillStyle=hGrd;
-      ctx.fill();
-
-      // Shadow (under breast)
-      const shGrd=ctx.createRadialGradient(
-        cx, cy+radY*.75, 0,
-        cx, cy+radY*.75, radX*.9
-      );
-      shGrd.addColorStop(0,`rgba(${Math.max(0,sr-60)},${Math.max(0,sg-55)},${Math.max(0,sb-50)},0.35)`);
-      shGrd.addColorStop(1,`rgba(0,0,0,0)`);
-      ctx.fillStyle=shGrd;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy+radY*.55, radX*.95, radY*.6, 0, 0, Math.PI*2);
-      ctx.fill();
-
-      ctx.restore();
+      ctx.putImageData(dst,0,0);
     }
 
-    // Apply composite mode for blending
-    ctx.globalCompositeOperation='source-over';
-    drawBreast(lx, ly, baseRx, projRy, -1);
-    drawBreast(rx, ry, baseRx*sf, projRy*sf, 1);
-    ctx.globalCompositeOperation='source-over';
+    // ── SHADOW UNDER BREAST ─────────────────────────
+    function addUnderBreastShadow(cx,cy,radX,radY,strength){
+      if(strength<0.05)return;
+      const shadowCtx=canvas.getContext('2d');
+      shadowCtx.save();
+      const sh=shadowCtx.createRadialGradient(cx,cy+radY*0.8,0,cx,cy+radY*0.8,radX*1.0);
+      const alpha=Math.min(0.38,strength*0.32);
+      sh.addColorStop(0,`rgba(30,15,5,${alpha})`);
+      sh.addColorStop(1,'rgba(0,0,0,0)');
+      shadowCtx.fillStyle=sh;
+      shadowCtx.beginPath();
+      shadowCtx.ellipse(cx,cy+radY*0.65,radX*1.05,radY*0.55,0,0,Math.PI*2);
+      shadowCtx.fill();
+      shadowCtx.restore();
+    }
+
+    // ── APPLY WARP ──────────────────────────────────
+    if(warpStrength>0.01){
+      // Warp left breast
+      warpBreast(lx,ly,baseRad,warpStrength,1);
+      // Warp right breast
+      warpBreast(rx,ry,baseRad*sf,warpStrength*sf,1);
+    }
+
+    // ── POST WARP: add subtle under-breast shadow ───
+    addUnderBreastShadow(lx,ly,bRx*(1+warpStrength*.8),bRy*(1+warpStrength*.8),warpStrength);
+    addUnderBreastShadow(rx,ry,bRx*sf*(1+warpStrength*.8),bRy*sf*(1+warpStrength*.8),warpStrength*sf);
   }
 
   function renderCurrentView(){
