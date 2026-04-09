@@ -1508,7 +1508,7 @@ PageRenderers.simulator = () => `
 
         <div style="border:1.5px dashed var(--border);border-radius:12px;padding:18px;background:var(--s2)">
           <div style="display:flex;gap:12px;justify-content:center;margin-bottom:18px">
-            ${[['0','ESQUERDA'],['1','FRENTE'],['2','DIREITA']].map(([idx,label])=>`
+            ${[['0','LATERAL ESQ'],['1','FRENTE'],['2','LATERAL DIR']].map(([idx,label])=>`
             <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
               <div id="slot-${idx}" onclick="triggerUpload(${idx})" ondragover="dragOver(event,${idx})" ondragleave="dragLeave(${idx})" ondrop="dropFile(event,${idx})"
                    style="width:180px;height:230px;border:1.5px dashed var(--border);border-radius:10px;background:var(--bg);position:relative;overflow:hidden;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center">
@@ -1664,7 +1664,7 @@ PageRenderers.simulator = () => `
               <!-- SIDE SELECTOR -->
               <div style="display:flex;gap:4px">
                 <div style="font-size:10px;color:var(--muted);line-height:26px;margin-right:2px;font-weight:600">Seio:</div>
-                ${[["B","Ambos"],["L","Esq"],["R","Dir"]].map(([k,lb])=>`
+                ${[["B","Ambos"],["R","Dir. paciente"],["L","Esq. paciente"]].map(([k,lb])=>`
                 <div id="side-${k}" onclick="setSide(\'${k}\')" style="flex:1;height:26px;border:1.5px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;font-weight:700;color:var(--muted);transition:all .15s;${k==="B"?"border-color:var(--sim);color:var(--sim);background:rgba(167,139,250,.1);":""}">${lb}</div>`).join("")}
               </div>
 
