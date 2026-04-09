@@ -1432,7 +1432,8 @@ PageInit.crm = (opts) => {
 // =============================================
 // =============================================
 // =============================================
-// 3. SIMULATOR 3D — Mama com Claude Vision AI
+// =============================================
+// 3. SIMULATOR 3D — Photo-Realistic (Crisalix-style)
 // =============================================
 PageRenderers.simulator = () => `
 <div style="padding:0;height:calc(100vh - 56px);display:flex;flex-direction:column;overflow:hidden" id="sim-root">
@@ -1447,66 +1448,97 @@ PageRenderers.simulator = () => `
         ${AppData.patients.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
       </select>
     </div>
-    <div style="display:flex;gap:6px;align-items:center;display:none" id="sim-top-actions">
-      <div style="display:flex;gap:2px;background:var(--s2);border-radius:8px;padding:3px">
-        ${['3D','Foto'].map((v,i)=>`<button onclick="setVMode('${v}')" id="vmode-${v}" class="btn btn-ghost btn-sm" style="font-size:10px;padding:4px 10px;${i===0?'background:var(--s3);color:var(--text)':''}">${v}</button>`).join('')}
-      </div>
-      <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="simShare()">🔗 Partilhar</button>
-      <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="exportSim()">⬇ Export</button>
-      <button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--sim)" onclick="resetSim()">↩ Nova simulação</button>
+    <div style="display:none;gap:6px;align-items:center" id="sim-top-actions">
+      <button class="btn btn-ghost btn-sm" onclick="toggleSideBySide()" id="btn-sbs" style="font-size:11px">◑ Antes/Depois</button>
+      <button class="btn btn-ghost btn-sm" onclick="simShare()" style="font-size:11px">🔗 Partilhar</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportSim()" style="font-size:11px">⬇ Export</button>
+      <button class="btn btn-ghost btn-sm" onclick="resetSim()" style="font-size:11px;color:var(--sim)">↩ Nova simulação</button>
     </div>
   </div>
 
   <!-- STEP 1: UPLOAD -->
-  <div id="step-upload" style="flex:1;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:24px 16px">
-    <div style="width:100%;max-width:620px;display:flex;flex-direction:column;align-items:center;gap:20px">
-      <div style="text-align:center">
-        <div style="font-size:22px;font-weight:700;margin-bottom:8px">Simulação 3D com IA</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7">A IA Claude analisa as fotografias da paciente e detecta a anatomia com precisão para gerar a simulação correcta</div>
+  <div id="step-upload" style="flex:1;overflow-y:auto;padding:28px 20px;display:flex;align-items:flex-start;justify-content:center">
+    <div style="width:100%;max-width:680px;display:flex;flex-direction:column;gap:24px">
+
+      <div>
+        <div style="font-size:20px;font-weight:700;margin-bottom:6px">Criar simulação 3D</div>
+        <div style="font-size:13px;color:var(--muted)">A IA analisa as fotos e simula o resultado do augmento directamente sobre a imagem real da paciente</div>
       </div>
 
-      <!-- SLOTS -->
-      <div style="display:flex;gap:14px;width:100%;justify-content:center">
-        ${[['0','Frontal','De frente'],['1','Lateral D','Perfil direito'],['2','Lateral E','Perfil esquerdo']].map(([idx,label,desc])=>`
-        <div style="flex:1;max-width:175px;display:flex;flex-direction:column;gap:8px">
-          <div id="slot-${idx}" onclick="triggerUpload(${idx})" ondragover="dragOver(event,${idx})" ondragleave="dragLeave(${idx})" ondrop="dropFile(event,${idx})"
-               style="width:100%;aspect-ratio:3/4;border:2px dashed var(--border);border-radius:12px;background:var(--s2);position:relative;overflow:hidden;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
-            <img id="thumb-${idx}" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover"/>
-            <div id="slot-ph-${idx}" style="display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:none">
-              <span style="font-size:30px;opacity:.35">📷</span>
-              <span style="font-size:12px;font-weight:600;color:var(--text)">${label}</span>
-              <span style="font-size:9px;color:var(--muted);text-align:center;padding:0 6px">${desc}</span>
-            </div>
-            <div id="slot-ok-${idx}" style="display:none;position:absolute;top:8px;right:8px;width:22px;height:22px;background:var(--pron);border-radius:50%;align-items:center;justify-content:center;font-size:11px;color:white">✓</div>
-          </div>
-          <input type="file" accept="image/*" id="finput-${idx}" style="display:none" onchange="fileChosen(event,${idx})">
-        </div>`).join('')}
-      </div>
-
-      <!-- AI BADGE -->
-      <div style="background:linear-gradient(135deg,rgba(167,139,250,.1),rgba(52,211,153,.08));border:1px solid rgba(167,139,250,.25);border-radius:12px;padding:13px 18px;width:100%;display:flex;gap:12px;align-items:flex-start">
-        <span style="font-size:20px;flex-shrink:0">🤖</span>
-        <div>
-          <div style="font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text)">Claude Vision analisa automaticamente:</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.8;display:grid;grid-template-columns:1fr 1fr;gap:2px">
-            <span>• Posição do tórax</span><span>• Distância inter-mamária</span>
-            <span>• Largura dos ombros</span><span>• Posição das mamas</span>
-            <span>• Tom de pele</span><span>• Proporções corporais</span>
+      <!-- DISTÂNCIA ENTRE MAMILOS -->
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:16px 18px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">Insira a distância entre mamilos da paciente</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:6px">
+          <span style="font-size:14px">ⓘ</span> Use a distância real para garantir que o resultado 3D e as medições sejam precisos
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="number" id="dist-mamilos" class="input" placeholder="" min="5" max="30" step="0.5"
+            style="width:120px;font-size:16px;font-weight:600;text-align:center;padding:10px"
+            oninput="checkReady()">
+          <span style="font-size:14px;color:var(--muted)">cm</span>
+          <div style="flex:1"></div>
+          <div id="dist-status" style="font-size:11px;color:var(--muted)"></div>
+        </div>
+        <!-- Editar dimensões do seio (collapsible) -->
+        <div style="margin-top:12px">
+          <button onclick="toggleBreastDims()" style="background:none;border:none;color:var(--sim);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;padding:0">
+            <span id="breast-dims-arrow">∨</span> Editar dimensões do seio
+          </button>
+          <div id="breast-dims" style="display:none;margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;display:none">
+            ${[['BN (base nadir)','bnl','bnr'],['SN (sternal notch)','snl','snr'],['IMF (fold)','imfl','imfr']].map(([lb,l,r])=>`
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px">
+              <div style="font-size:9px;color:var(--muted);margin-bottom:6px;font-weight:600">${lb}</div>
+              <div style="display:flex;gap:6px">
+                <div><div style="font-size:8px;color:var(--muted)">Esq</div><input type="number" id="${l}" class="input" style="width:52px;font-size:11px;padding:4px" placeholder="—"></div>
+                <div><div style="font-size:8px;color:var(--muted)">Dir</div><input type="number" id="${r}" class="input" style="width:52px;font-size:11px;padding:4px" placeholder="—"></div>
+              </div>
+            </div>`).join('')}
           </div>
         </div>
       </div>
 
-      <div style="display:flex;gap:12px;align-items:center">
-        <button id="btn-create" onclick="createModel()" disabled
-          style="background:var(--sim);color:white;border:none;border-radius:10px;padding:13px 36px;font-size:14px;font-weight:700;opacity:.35;cursor:not-allowed;transition:all .3s">
-          ✨ Analisar com IA e criar 3D
-        </button>
-        <span style="font-size:11px;color:var(--muted)">ou <span onclick="loadDemo()" style="color:var(--sim);cursor:pointer;text-decoration:underline">usar demo</span></span>
+      <!-- UPLOAD SLOTS -->
+      <div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">Carregue <strong>fotos 3</strong>. A ordem não é importante.</div>
+        <div style="margin-bottom:14px">
+          <span onclick="showPhotoGuide()" style="color:var(--sim);font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px">
+            ⓘ Como tirar fotografias optimizadas
+          </span>
+        </div>
+
+        <div style="border:1.5px dashed var(--border);border-radius:12px;padding:18px;background:var(--s2)">
+          <div style="display:flex;gap:12px;justify-content:center;margin-bottom:18px">
+            ${[['0','ESQUERDA'],['1','FRENTE'],['2','DIREITA']].map(([idx,label])=>`
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+              <div id="slot-${idx}" onclick="triggerUpload(${idx})" ondragover="dragOver(event,${idx})" ondragleave="dragLeave(${idx})" ondrop="dropFile(event,${idx})"
+                   style="width:180px;height:230px;border:1.5px dashed var(--border);border-radius:10px;background:var(--bg);position:relative;overflow:hidden;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center">
+                <img id="thumb-${idx}" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover"/>
+                <div id="slot-ph-${idx}" style="display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;opacity:.5">
+                  <span style="font-size:32px">📷</span>
+                  <span style="font-size:11px;color:var(--muted)">Adicionar foto</span>
+                </div>
+                <div id="slot-ok-${idx}" style="display:none;position:absolute;top:8px;right:8px;width:24px;height:24px;background:var(--pron);border-radius:50%;align-items:center;justify-content:center;font-size:12px;color:white;font-weight:700">✓</div>
+              </div>
+              <span style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px">${label}</span>
+              <input type="file" accept="image/*" id="finput-${idx}" style="display:none" onchange="fileChosen(event,${idx})">
+            </div>`).join('')}
+          </div>
+
+          <div style="display:flex;align-items:center;gap:12px;justify-content:center">
+            <button id="btn-create" onclick="createModel()" disabled
+              style="background:var(--sim);color:white;border:none;border-radius:10px;padding:12px 32px;font-size:14px;font-weight:700;opacity:.35;cursor:not-allowed;transition:all .3s">
+              Selecionar fotos
+            </button>
+            <span style="font-size:12px;color:var(--muted)">ou arraste e solte suas fotos aqui.</span>
+          </div>
+          <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--muted)">Tipos de arquivo suportados: JPG, PNG, HEIC, HEIF</div>
+        </div>
       </div>
+
     </div>
   </div>
 
-  <!-- STEP 2: PROCESSING (AI) -->
+  <!-- STEP 2: PROCESSING -->
   <div id="step-proc" style="display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:20px">
     <div style="position:relative;width:90px;height:90px">
       <svg viewBox="0 0 90 90" width="90" height="90" style="transform:rotate(-90deg)">
@@ -1516,98 +1548,91 @@ PageRenderers.simulator = () => `
       </svg>
       <div id="proc-pct" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;font-family:var(--mono)">0%</div>
     </div>
-    <div style="font-size:16px;font-weight:600" id="proc-title">Claude Vision a analisar...</div>
-    <div style="font-size:11px;color:var(--muted);font-family:var(--mono);min-height:20px" id="proc-step">A carregar imagens...</div>
-    <div id="ai-log" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;width:400px;max-height:140px;overflow-y:auto;font-size:10px;font-family:var(--mono);color:var(--muted);line-height:1.9"></div>
+    <div style="font-size:16px;font-weight:600" id="proc-title">A processar...</div>
+    <div style="font-size:11px;color:var(--muted);font-family:var(--mono)" id="proc-step">Iniciando...</div>
+    <div id="ai-log" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;width:420px;max-height:130px;overflow-y:auto;font-size:10px;font-family:var(--mono);color:var(--muted);line-height:2"></div>
     <div style="display:flex;gap:8px" id="proc-thumbs"></div>
   </div>
 
-  <!-- STEP 3: VIEWER -->
+  <!-- STEP 3: ACCEPT/REJECT (like Crisalix) -->
+  <div id="step-accept" style="display:none;flex:1;overflow:hidden">
+    <div style="display:flex;height:100%;background:#111">
+      <!-- Preview canvas -->
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;position:relative">
+        <canvas id="preview-canvas" style="max-height:calc(100vh - 120px);max-width:100%;object-fit:contain"></canvas>
+        <div style="position:absolute;bottom:14px;left:14px;background:rgba(0,0,0,.6);color:rgba(255,255,255,.6);font-size:11px;padding:5px 12px;border-radius:8px;font-family:var(--mono)">RESULTADO 3D</div>
+      </div>
+      <!-- Accept card -->
+      <div style="width:380px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:32px;background:var(--bg2);border-left:1px solid var(--border)">
+        <div style="font-size:18px;font-weight:700">Resultado 3D</div>
+        <div style="font-size:13px;color:var(--muted);text-align:center;line-height:1.7">
+          Está satisfeito/a com a qualidade do 3D?<br>
+          Se não, tente novamente com novas fotos até ficar completamente satisfeito/a.
+        </div>
+        <div style="display:flex;gap:12px;margin-top:8px">
+          <button onclick="refazer3D()" class="btn btn-ghost" style="padding:10px 24px;font-size:13px">Refazer o 3D</button>
+          <button onclick="aceitar3D()" style="background:var(--sim);color:white;border:none;border-radius:10px;padding:10px 24px;font-size:13px;font-weight:600;cursor:pointer">Aceitar o 3D</button>
+        </div>
+        <div style="margin-top:8px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-align:center">Avaliar a qualidade do 3D</div>
+          <div style="display:flex;gap:6px" id="quality-stars">
+            ${[1,2,3,4,5].map(i=>`<span onclick="rateQuality(${i})" id="star-${i}" style="font-size:22px;cursor:pointer;color:rgba(255,255,255,.2)">★</span>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4: VIEWER (main simulation) -->
   <div id="step-viewer" style="display:none;flex:1;overflow:hidden">
     <div style="display:flex;height:100%">
 
-      <!-- LEFT TOOLBAR -->
+      <!-- LEFT MINI TOOLBAR -->
       <div style="width:42px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:5px;flex-shrink:0">
-        ${[['✏️','Anotar'],['↩','Desfazer'],['📐','Medidas'],['💾','Guardar'],['🔍','Zoom']].map(([ic,tt])=>`
-        <div title="${tt}" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:7px;cursor:pointer;font-size:14px;transition:background .15s" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''">${ic}</div>`).join('')}
-        <div style="flex:1"></div>
-        <div style="font-size:7px;color:var(--muted);writing-mode:vertical-rl;opacity:.4;padding:8px 0;font-family:var(--mono)">DRAG=ROTATE</div>
+        ${[['✏️','Anotar'],['↩','Desfazer'],['📐','Medidas'],['💾','Guardar'],['↔','Comparar']].map(([ic,tt])=>`
+        <div title="${tt}" onclick="toolAction('${tt}')" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:7px;cursor:pointer;font-size:14px;transition:background .15s" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''">${ic}</div>`).join('')}
       </div>
 
-      <!-- VIEWPORT -->
-      <div id="sim-viewport" style="flex:1;position:relative;background:#08080f;overflow:hidden">
+      <!-- CENTER VIEWPORT -->
+      <div id="sim-viewport" style="flex:1;position:relative;background:#0d0d16;overflow:hidden;display:flex;align-items:center;justify-content:center">
 
-        <!-- THREE.JS canvas -->
-        <canvas id="three-canvas" style="width:100%;height:100%;display:block;cursor:grab"></canvas>
+        <!-- NORMAL VIEW (single photo) -->
+        <div id="view-normal" style="position:relative;display:inline-flex">
+          <canvas id="main-canvas" style="max-height:calc(100vh - 120px);max-width:100%;display:block"></canvas>
+          <!-- BEFORE label -->
+          <div id="before-tag" style="display:none;position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,.7);color:white;font-size:11px;font-weight:700;padding:5px 14px;border-radius:8px">Antes</div>
+        </div>
 
-        <!-- FOTO mode -->
-        <div id="photo-mode" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:#0d0d14">
-          <div style="position:relative;display:inline-flex;align-items:flex-start" id="photo-sim-wrap">
-            <img id="photo-base" style="max-height:calc(100vh - 160px);max-width:100%;object-fit:contain;display:block" draggable="false"/>
-            <svg id="photo-overlay" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible"
-                 viewBox="0 0 400 600" preserveAspectRatio="xMidYMid meet">
-              <defs>
-                <radialGradient id="ogL" cx="35%" cy="28%" r="66%">
-                  <stop offset="0%" stop-color="rgba(235,185,145,.62)"/>
-                  <stop offset="55%" stop-color="rgba(210,160,118,.45)"/>
-                  <stop offset="100%" stop-color="rgba(175,110,70,.08)"/>
-                </radialGradient>
-                <radialGradient id="ogR" cx="65%" cy="28%" r="66%">
-                  <stop offset="0%" stop-color="rgba(235,185,145,.62)"/>
-                  <stop offset="55%" stop-color="rgba(210,160,118,.45)"/>
-                  <stop offset="100%" stop-color="rgba(175,110,70,.08)"/>
-                </radialGradient>
-                <radialGradient id="hlL" cx="32%" cy="22%" r="44%">
-                  <stop offset="0%" stop-color="rgba(255,225,195,.48)"/>
-                  <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-                </radialGradient>
-                <radialGradient id="hlR" cx="68%" cy="22%" r="44%">
-                  <stop offset="0%" stop-color="rgba(255,225,195,.48)"/>
-                  <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-                </radialGradient>
-                <filter id="eb"><feGaussianBlur stdDeviation="5.5"/></filter>
-                <filter id="sb"><feGaussianBlur stdDeviation="2.5"/></filter>
-              </defs>
-              <!-- Shadow -->
-              <ellipse id="shL" cx="148" cy="300" rx="40" ry="10" fill="rgba(60,30,10,.2)" filter="url(#sb)"/>
-              <ellipse id="shR" cx="252" cy="300" rx="40" ry="10" fill="rgba(60,30,10,.2)" filter="url(#sb)"/>
-              <!-- Edge blur -->
-              <path id="ebL" d="" fill="rgba(210,165,118,.07)" filter="url(#eb)"/>
-              <path id="ebR" d="" fill="rgba(210,165,118,.07)" filter="url(#eb)"/>
-              <!-- Main -->
-              <path id="poL" d="" fill="url(#ogL)"/>
-              <path id="poR" d="" fill="url(#ogR)"/>
-              <!-- Highlights -->
-              <path id="hlpL" d="" fill="url(#hlL)"/>
-              <path id="hlpR" d="" fill="url(#hlR)"/>
-              <!-- AI landmark dots (debug, hidden by default) -->
-              <circle id="ai-dot-L" cx="148" cy="270" r="3" fill="rgba(167,139,250,.0)"/>
-              <circle id="ai-dot-R" cx="252" cy="270" r="3" fill="rgba(167,139,250,.0)"/>
-            </svg>
-            <!-- Position handle -->
-            <div id="pos-handle" style="position:absolute;top:6px;left:50%;transform:translateX(-50%);background:rgba(167,139,250,.85);color:white;font-size:9px;padding:3px 11px;border-radius:12px;cursor:move;font-family:var(--mono);z-index:10;user-select:none;white-space:nowrap" onmousedown="handleDragStart(event)">⠿ Ajustar posição</div>
-            <!-- AI landmark badge -->
-            <div id="ai-badge" style="position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.3);color:var(--pron);font-size:9px;padding:3px 10px;border-radius:8px;font-family:var(--mono);white-space:nowrap">🤖 Posição detectada por IA</div>
+        <!-- SIDE BY SIDE VIEW -->
+        <div id="view-sbs" style="display:none;align-items:center;gap:2px;height:100%">
+          <div style="position:relative;flex:1;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
+            <canvas id="canvas-before" style="max-height:calc(100vh - 120px);max-width:100%"></canvas>
+            <div style="position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,.7);color:white;font-size:12px;font-weight:700;padding:6px 16px;border-radius:8px">Antes</div>
+          </div>
+          <div style="width:2px;height:80%;background:rgba(255,255,255,.2);flex-shrink:0"></div>
+          <div style="position:relative;flex:1;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden">
+            <canvas id="canvas-after" style="max-height:calc(100vh - 120px);max-width:100%"></canvas>
+            <div style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,.7);color:white;font-size:12px;font-weight:700;padding:6px 16px;border-radius:8px">Depois</div>
           </div>
         </div>
 
-        <!-- BEFORE/AFTER -->
-        <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:1px;background:rgba(0,0,0,.55);border-radius:10px;padding:3px;z-index:5">
-          <button id="ba-b" onclick="setBA(false)" style="padding:7px 22px;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.1);color:rgba(255,255,255,.6)">Antes</button>
-          <button id="ba-a" onclick="setBA(true)"  style="padding:7px 22px;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;background:rgba(167,139,250,.9);color:white">Depois</button>
-        </div>
-
-        <!-- View thumbs (foto mode) -->
+        <!-- VIEW THUMBS -->
         <div id="view-thumbs" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;z-index:5"></div>
 
-        <!-- Zoom -->
+        <!-- BEFORE/AFTER toggle -->
+        <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:1px;background:rgba(0,0,0,.55);border-radius:10px;padding:3px;z-index:5">
+          <button id="ba-b" onclick="setBA(false)" style="padding:7px 22px;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.15);color:white">Antes</button>
+          <button id="ba-a" onclick="setBA(true)" style="padding:7px 22px;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;background:rgba(167,139,250,.9);color:white">Depois</button>
+        </div>
+
+        <!-- ZOOM -->
         <div style="position:absolute;bottom:14px;right:14px;display:flex;flex-direction:column;gap:4px;z-index:5">
           <button onclick="doZoom(1.15)" style="width:28px;height:28px;background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;cursor:pointer">+</button>
           <button onclick="doZoom(.87)"  style="width:28px;height:28px;background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;cursor:pointer">−</button>
         </div>
 
-        <!-- Info badge -->
-        <div style="position:absolute;top:12px;right:12px;background:rgba(8,8,15,.88);border:1px solid rgba(167,139,250,.3);color:var(--sim);font-size:9px;font-family:var(--mono);padding:8px 12px;border-radius:10px;line-height:2;z-index:5">
+        <!-- INFO BADGE -->
+        <div style="position:absolute;top:12px;right:12px;background:rgba(8,8,20,.88);border:1px solid rgba(167,139,250,.3);color:var(--sim);font-size:9px;font-family:var(--mono);padding:8px 12px;border-radius:10px;line-height:2;z-index:5">
           <div id="ib-vol">250 cc</div><div id="ib-diam">Ø 11,5 cm</div>
           <div id="ib-perf">Perfil Moderado</div><div id="ib-fmt">⬤ Redondo</div>
         </div>
@@ -1626,7 +1651,7 @@ PageRenderers.simulator = () => `
           <div style="border-bottom:1px solid var(--border)">
             <div onclick="sec('aug')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;background:var(--s2)">
               <span style="font-size:12px;font-weight:600">Aumento primário</span>
-              <span id="aug-ico" style="color:var(--sim);font-size:14px">−</span>
+              <span id="aug-ico" style="color:var(--sim)">−</span>
             </div>
             <div id="aug-bd" style="padding:13px 12px;display:flex;flex-direction:column;gap:11px">
 
@@ -1636,33 +1661,30 @@ PageRenderers.simulator = () => `
                 <button onclick="openCat()" style="flex:1;height:34px;border:1.5px solid var(--border);border-radius:8px;font-size:9px;font-weight:700;color:var(--muted);background:transparent;cursor:pointer">📋 Catálogo</button>
               </div>
 
-              <!-- VOLUME -->
               <div>
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
                   <span style="font-size:11px;color:var(--muted)">Volume</span>
                   <div style="display:flex;align-items:center;gap:5px">
-                    <button onclick="ap('volume',-25)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;line-height:1">−</button>
+                    <button onclick="ap('volume',-25)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer">−</button>
                     <span id="dv" style="font-size:13px;font-weight:700;min-width:62px;text-align:center;font-family:var(--mono)">250 cc</span>
-                    <button onclick="ap('volume',25)"  style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;line-height:1">+</button>
+                    <button onclick="ap('volume',25)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer">+</button>
                   </div>
                 </div>
                 <input type="range" min="100" max="800" step="25" value="250" style="width:100%;accent-color:var(--sim)" id="sv" oninput="sp2('volume',this.value)">
               </div>
 
-              <!-- DIÂMETRO -->
               <div>
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
                   <span style="font-size:11px;color:var(--muted)">Diâmetro</span>
                   <div style="display:flex;align-items:center;gap:5px">
-                    <button onclick="ap('diam',-0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;line-height:1">−</button>
+                    <button onclick="ap('diam',-0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer">−</button>
                     <span id="dd" style="font-size:13px;font-weight:700;min-width:62px;text-align:center;font-family:var(--mono)">11,5 cm</span>
-                    <button onclick="ap('diam',0.5)"  style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;line-height:1">+</button>
+                    <button onclick="ap('diam',0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer">+</button>
                   </div>
                 </div>
                 <input type="range" min="8" max="16" step="0.5" value="11.5" style="width:100%;accent-color:var(--sim)" id="sd" oninput="sp2('diam',this.value)">
               </div>
 
-              <!-- FORMATO + PERFIL -->
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                 <div>
                   <div style="font-size:10px;color:var(--muted);margin-bottom:5px;font-weight:600">Formato</div>
@@ -1680,7 +1702,6 @@ PageRenderers.simulator = () => `
                 </div>
               </div>
 
-              <!-- MÉTODO -->
               <div>
                 <div style="font-size:10px;color:var(--muted);margin-bottom:5px;font-weight:600">Método</div>
                 <div style="display:flex;gap:5px">
@@ -1689,7 +1710,6 @@ PageRenderers.simulator = () => `
                 </div>
               </div>
 
-              <!-- SIMÉTRICO -->
               <div style="display:flex;align-items:center;justify-content:space-between;background:var(--s2);border-radius:8px;padding:8px 11px">
                 <span style="font-size:11px">Simétrico</span>
                 <div id="sym-t" onclick="toggleSym()" style="width:38px;height:20px;border-radius:10px;background:var(--sim);cursor:pointer;position:relative">
@@ -1708,13 +1728,12 @@ PageRenderers.simulator = () => `
             <div id="${k}-bd" style="display:none;padding:12px 14px;font-size:11px;color:var(--muted)">Em breve</div>
           </div>`).join('')}
 
-          <!-- AI ANALYSIS CARD -->
+          <!-- AI RESULTS -->
           <div style="margin:12px;background:var(--s2);border:1px solid rgba(167,139,250,.2);border-radius:10px;padding:12px">
-            <div style="font-size:10px;font-weight:600;color:var(--sim);margin-bottom:8px;display:flex;align-items:center;gap:5px">🤖 Análise IA</div>
-            <div id="ai-results" style="font-size:10px;color:var(--muted);line-height:1.8;font-family:var(--mono)">—</div>
+            <div style="font-size:10px;font-weight:600;color:var(--sim);margin-bottom:6px">🤖 Análise IA</div>
+            <div id="ai-results" style="font-size:10px;color:var(--muted);line-height:1.9;font-family:var(--mono)">—</div>
           </div>
         </div>
-
         <div id="panel-tools" style="display:none;padding:14px;font-size:11px;color:var(--muted)">Ferramentas em breve</div>
       </div>
     </div>
@@ -1751,7 +1770,6 @@ const IMPL_DB=[
   {brand:'Allergan',name:'Allergan Natrelle Round High',code:'NRH-325',vol:325,diam:11.0,proj:4.3,perfil:'high',formato:'round'},
   {brand:'Allergan',name:'Allergan 410 Anatomic FF',code:'410FF-335',vol:335,diam:12.0,proj:4.2,perfil:'high',formato:'tear'},
   {brand:'Allergan',name:'Allergan Inspira Cohesive',code:'ICS-375',vol:375,diam:12.8,proj:4.6,perfil:'xh',formato:'round'},
-  {brand:'Sientra',name:'Sientra HSC+ Round Moderate Plus',code:'HSCRMP-270',vol:270,diam:11.8,proj:3.7,perfil:'mod',formato:'round'},
   {brand:'Sientra',name:'Sientra HSC+ Round High',code:'HSCRHP-315',vol:315,diam:11.5,proj:4.4,perfil:'high',formato:'round'},
   {brand:'Sebbin',name:'Sebbin BioCell Round Moderate',code:'SCL-260',vol:260,diam:11.4,proj:3.5,perfil:'mod',formato:'round'},
   {brand:'Sebbin',name:'Sebbin BioCell Anatomic Full',code:'SBA-310',vol:310,diam:11.9,proj:4.0,perfil:'high',formato:'tear'},
@@ -1759,13 +1777,13 @@ const IMPL_DB=[
 
 PageInit.simulator = () => {
   // ── STATE ──────────────────────────────────────────
-  let photos=[null,null,null]; // base64 strings
-  let aiData=null; // JSON from Claude Vision
+  let photos=[null,null,null];
+  let aiData=null;
+  let baseImages=[null,null,null]; // HTMLImageElement for each photo
+  let currentView=1; // default = FRENTE (index 1)
   let P={volume:250,diam:11.5,perfil:'mod',formato:'round',metodo:'sub',simetrico:true};
-  let showAfter=true, currentMode='3D', currentPhotoIdx=0;
-  let overlayPos={cx:50,cy:42}; // % of image
-  let isDragging=false,lastMouse={x:0,y:0},rotX=0,rotY=0;
-  let renderer,scene,camera,breastGroup,animId;
+  let showAfter=true, sbsMode=false, zoomScale=1;
+  let isSbsMode=false;
 
   // ── UPLOAD ─────────────────────────────────────────
   window.triggerUpload=i=>document.getElementById('finput-'+i).click();
@@ -1773,6 +1791,12 @@ PageInit.simulator = () => {
   window.dragLeave=i=>{document.getElementById('slot-'+i).style.borderColor='var(--border)';};
   window.dropFile=(e,i)=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))readFile(f,i);window.dragLeave(i);};
   window.fileChosen=(e,i)=>{const f=e.target.files[0];if(f)readFile(f,i);};
+  window.toggleBreastDims=function(){
+    const d=document.getElementById('breast-dims'),a=document.getElementById('breast-dims-arrow');
+    const open=d.style.display!=='none';
+    d.style.display=open?'none':'grid';
+    if(a)a.textContent=open?'∨':'∧';
+  };
 
   function readFile(f,i){
     const r=new FileReader();
@@ -1787,658 +1811,351 @@ PageInit.simulator = () => {
     if(ph)ph.style.display='none';
     if(ok){ok.style.removeProperty('display');ok.style.display='flex';}
     if(sl)sl.style.borderColor='var(--pron)';
+    // Load as Image element
+    const img=new Image();img.src=src;
+    img.onload=()=>{baseImages[i]=img;};
     checkReady();
   }
   function checkReady(){
     const ok=photos.filter(Boolean).length>=1;
     const btn=document.getElementById('btn-create');
-    if(btn){btn.disabled=!ok;btn.style.opacity=ok?'1':'.35';btn.style.cursor=ok?'pointer':'not-allowed';}
-  }
-  window.loadDemo=function(){
-    // Draw realistic demo body canvas
-    function makeDemo(angle){
-      const c=document.createElement('canvas');c.width=320;c.height=500;
-      const ctx=c.getContext('2d');
-      // Background
-      const bg=ctx.createLinearGradient(0,0,0,500);bg.addColorStop(0,'#e8e0d8');bg.addColorStop(1,'#d5cdc5');
-      ctx.fillStyle=bg;ctx.fillRect(0,0,320,500);
-      // Torso
-      const sg=ctx.createRadialGradient(160,250,20,160,250,180);
-      sg.addColorStop(0,'#d4906a');sg.addColorStop(.6,'#c07850');sg.addColorStop(1,'#a56040');
-      ctx.fillStyle=sg;
-      ctx.beginPath();
-      if(angle==='frontal'){
-        ctx.moveTo(95,80);ctx.quadraticCurveTo(60,130,55,220);ctx.quadraticCurveTo(52,310,80,420);
-        ctx.lineTo(240,420);ctx.quadraticCurveTo(268,310,265,220);ctx.quadraticCurveTo(260,130,225,80);
-        ctx.quadraticCurveTo(160,60,95,80);
-      } else {
-        ctx.moveTo(130,80);ctx.quadraticCurveTo(100,130,95,220);ctx.quadraticCurveTo(92,310,110,420);
-        ctx.lineTo(200,420);ctx.quadraticCurveTo(220,310,218,220);ctx.quadraticCurveTo(210,130,190,80);
-        ctx.quadraticCurveTo(160,60,130,80);
-      }
-      ctx.fill();
-      // Head
-      ctx.fillStyle='#c87850';ctx.beginPath();ctx.ellipse(160,45,28,38,0,0,Math.PI*2);ctx.fill();
-      // Neck
-      ctx.fillStyle='#c88060';ctx.fillRect(147,75,26,28);
-      return c.toDataURL('image/jpeg',.88);
+    if(btn){
+      btn.disabled=!ok;btn.style.opacity=ok?'1':'.35';btn.style.cursor=ok?'pointer':'not-allowed';
+      btn.textContent=ok?'✨ Criar modelo 3D':'Selecionar fotos';
     }
-    [makeDemo('frontal'),makeDemo('lateral'),makeDemo('lateral')].forEach((s,i)=>setPhoto(i,s));
+  }
+
+  window.showPhotoGuide=function(){
+    alert('Para melhores resultados:\n• Fundo neutro branco ou creme\n• Braços levemente afastados do corpo\n• Boa iluminação uniforme, sem sombras\n• Capturar do pescoço até abaixo da cintura\n• 3 ângulos: frente, lateral direita, lateral esquerda');
   };
 
-  // ── CLAUDE VISION ANALYSIS ─────────────────────────
+  // ── CLAUDE VISION ─────────────────────────────────
   async function analyzeWithClaude(base64Img){
-    // Extract base64 data (remove data:image/jpeg;base64, prefix)
     const b64=base64Img.split(',')[1];
-    const mediaType=base64Img.split(';')[0].split(':')[1]||'image/jpeg';
-
-    const prompt=`You are a medical imaging AI specializing in breast augmentation surgery planning.
-Analyze this frontal photo of a patient's torso and return ONLY valid JSON with these measurements as percentages of image dimensions (0-100):
-
-{
-  "breast_left_center_x": <x% of image width where left breast center is>,
-  "breast_left_center_y": <y% of image height>,
-  "breast_right_center_x": <x% of image width where right breast center is>,
-  "breast_right_center_y": <y% of image height>,
-  "breast_radius_percent": <approximate breast radius as % of image width>,
-  "inter_breast_gap_percent": <gap between breasts as % of image width>,
-  "torso_width_percent": <torso width as % of image width at breast level>,
-  "breast_level_y_percent": <y% where breast midline is>,
-  "skin_tone": "<fair|medium|olive|dark>",
-  "estimated_cup_size": "<A|B|C|D>",
-  "notes": "<brief anatomical notes for surgeon>"
-}
-
-Analyze carefully. If you cannot detect breasts clearly, estimate based on typical anatomy.
-Return ONLY the JSON object, no other text.`;
-
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const mType=base64Img.split(';')[0].split(':')[1]||'image/jpeg';
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
-        max_tokens:500,
-        messages:[{
-          role:'user',
-          content:[
-            {type:'image',source:{type:'base64',media_type:mediaType,data:b64}},
-            {type:'text',text:prompt}
-          ]
-        }]
+        max_tokens:600,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:mType,data:b64}},
+          {type:'text',text:`Analyze this frontal photo of a patient's torso for breast augmentation simulation.
+Return ONLY valid JSON (no markdown, no extra text):
+{
+  "breast_left_x": <x% 0-100 of image width, center of left breast>,
+  "breast_left_y": <y% 0-100 of image height, center of left breast>,
+  "breast_right_x": <x% of right breast center>,
+  "breast_right_y": <y% of right breast center>,
+  "breast_radius_x": <horizontal radius of each breast as % of image width>,
+  "breast_radius_y": <vertical radius of each breast as % of image height>,
+  "nipple_left_x": <nipple x%>,
+  "nipple_left_y": <nipple y%>,
+  "nipple_right_x": <nipple x%>,
+  "nipple_right_y": <nipple y%>,
+  "skin_r": <average skin red 0-255 sampled from breast area>,
+  "skin_g": <green>,
+  "skin_b": <blue>,
+  "cup_size": "<A|B|C|D|DD>",
+  "notes": "<brief anatomical note>"
+}`}
+        ]}]
       })
     });
-    const data=await response.json();
-    if(data.error) throw new Error(data.error.message);
-    const text=data.content?.[0]?.text||'{}';
-    const clean=text.replace(/```json|```/g,'').trim();
-    return JSON.parse(clean);
+    const data=await res.json();
+    if(data.error)throw new Error(data.error.message);
+    const txt=data.content?.[0]?.text||'{}';
+    return JSON.parse(txt.replace(/```json|```/g,'').trim());
   }
 
-  // ── LOG HELPER ─────────────────────────────────────
-  function aiLog(msg){
-    const el=document.getElementById('ai-log');
-    if(el){el.innerHTML+=`<div>> ${msg}</div>`;el.scrollTop=el.scrollHeight;}
-  }
+  // ── PROCESS ───────────────────────────────────────
+  function aiLog(msg){const el=document.getElementById('ai-log');if(el){el.innerHTML+=`<div>> ${msg}</div>`;el.scrollTop=el.scrollHeight;}}
   function setProgress(pct,title,step){
-    const ring=document.getElementById('proc-ring');
-    if(ring) ring.style.strokeDashoffset=239-(239*pct/100);
-    const pp=document.getElementById('proc-pct');if(pp)pp.textContent=pct+'%';
-    const pt=document.getElementById('proc-title');if(pt&&title)pt.textContent=title;
-    const ps=document.getElementById('proc-step');if(ps&&step)ps.textContent=step;
+    const r=document.getElementById('proc-ring');if(r)r.style.strokeDashoffset=239-(239*pct/100);
+    const p=document.getElementById('proc-pct');if(p)p.textContent=pct+'%';
+    const t=document.getElementById('proc-title');if(t&&title)t.textContent=title;
+    const s=document.getElementById('proc-step');if(s&&step)s.textContent=step;
   }
 
-  // ── CREATE MODEL ──────────────────────────────────
   window.createModel=async function(){
     document.getElementById('step-upload').style.display='none';
-    const sp=document.getElementById('step-proc');
-    sp.style.removeProperty('display');sp.style.display='flex';
+    const sp=document.getElementById('step-proc');sp.style.removeProperty('display');sp.style.display='flex';
     const tp=document.getElementById('proc-thumbs');
     if(tp)tp.innerHTML=photos.filter(Boolean).map(s=>`<img src="${s}" style="width:60px;height:85px;object-fit:cover;border-radius:8px;border:2px solid var(--border)">`).join('');
 
-    setProgress(5,'Claude Vision a analisar...','A carregar fotografias...');
-    aiLog('Iniciando análise com Claude Vision...');
+    setProgress(5,'Claude Vision a analisar...','A carregar imagens...');
+    aiLog('Iniciando análise com Claude Vision AI...');
 
-    try {
-      // Use frontal photo (index 0) for analysis
-      const frontPhoto=photos[0]||photos[1]||photos[2];
-      if(!frontPhoto) throw new Error('Nenhuma foto disponível');
-
-      setProgress(15,'Enviando para Claude Vision...','A analisar anatomia...');
+    try{
+      const frontPhoto=photos[1]||photos[0]||photos[2];
+      setProgress(15,'Analisando anatomia...','Detectando landmarks...');
       aiLog('Enviando foto frontal para análise...');
-
       aiData=await analyzeWithClaude(frontPhoto);
-
-      setProgress(55,'IA detectou landmarks...','A calibrar modelo...');
-      aiLog('✓ Landmarks detectados pela IA');
-      aiLog('Posição mama esq: ('+aiData.breast_left_center_x?.toFixed(1)+'%, '+aiData.breast_left_center_y?.toFixed(1)+'%)');
-      aiLog('Posição mama dir: ('+aiData.breast_right_center_x?.toFixed(1)+'%, '+aiData.breast_right_center_y?.toFixed(1)+'%)');
-      aiLog('Tom de pele: '+aiData.skin_tone);
-      aiLog('Tamanho estimado: '+aiData.estimated_cup_size);
-
-      // Convert % to overlayPos format (cx = midpoint between breasts)
-      if(aiData.breast_left_center_x&&aiData.breast_right_center_x){
-        overlayPos.cx=(aiData.breast_left_center_x+aiData.breast_right_center_x)/2;
-        overlayPos.cy=(aiData.breast_left_center_y+aiData.breast_right_center_y)/2;
-      }
-
-      setProgress(75,'A construir modelo 3D...','Aplicando proporções detectadas...');
-      aiLog('A gerar modelo 3D com anatomia real...');
-      await new Promise(r=>setTimeout(r,800));
-
-      setProgress(90,'A renderizar...','Iluminação e texturas...');
-      aiLog('A aplicar renderização...');
-      await new Promise(r=>setTimeout(r,600));
-
-      setProgress(100,'Modelo pronto! ✓','');
-      aiLog('✓ Simulação pronta');
-
-      // Show notes
-      if(aiData.notes) aiLog('Notas: '+aiData.notes);
-
-    } catch(err){
-      aiLog('⚠ Erro IA: '+err.message);
-      aiLog('A usar posição padrão...');
-      setProgress(100,'Pronto (modo padrão)','');
-      // fallback to defaults
-      aiData={breast_left_center_x:40,breast_right_center_x:60,breast_left_center_y:42,breast_right_center_y:42,skin_tone:'medium',estimated_cup_size:'B',notes:'Posição estimada'};
-      overlayPos={cx:50,cy:42};
+      setProgress(55,'Landmarks detectados!','Calibrando simulação...');
+      aiLog(`✓ Mama esq: (${aiData.breast_left_x?.toFixed(1)}%, ${aiData.breast_left_y?.toFixed(1)}%)`);
+      aiLog(`✓ Mama dir: (${aiData.breast_right_x?.toFixed(1)}%, ${aiData.breast_right_y?.toFixed(1)}%)`);
+      aiLog(`✓ Copa base: ${aiData.cup_size} | Pele: rgb(${aiData.skin_r},${aiData.skin_g},${aiData.skin_b})`);
+      if(aiData.notes)aiLog(`✓ ${aiData.notes}`);
+    }catch(err){
+      aiLog(`⚠ IA error: ${err.message}`);
+      aiLog('A usar detecção padrão...');
+      aiData={breast_left_x:37,breast_left_y:42,breast_right_x:63,breast_right_y:42,
+              breast_radius_x:9,breast_radius_y:11,nipple_left_x:37,nipple_left_y:45,
+              nipple_right_x:63,nipple_right_y:45,skin_r:200,skin_g:160,skin_b:130,cup_size:'B'};
     }
 
-    setTimeout(enterViewer,700);
+    setProgress(75,'A construir simulação...','Renderizando sobre a foto...');
+    aiLog('A gerar simulação fotorrealista...');
+    await new Promise(r=>setTimeout(r,600));
+    setProgress(90,'A processar iluminação...','');
+    await new Promise(r=>setTimeout(r,500));
+    setProgress(100,'Pronto! ✓','');
+    aiLog('✓ Simulação gerada com sucesso');
+    await new Promise(r=>setTimeout(r,500));
+
+    // Load all images then go to accept screen
+    await loadAllImages();
+    showAcceptScreen();
   };
 
-  // ── ENTER VIEWER ──────────────────────────────────
-  function enterViewer(){
-    document.getElementById('step-proc').style.display='none';
-    const sv=document.getElementById('step-viewer');
-    sv.style.removeProperty('display');sv.style.display='block';
-
-    const ta=document.getElementById('sim-top-actions');
-    ta.style.removeProperty('display');ta.style.display='flex';
-
-    // Show AI results in side panel
-    if(aiData){
-      const ar=document.getElementById('ai-results');
-      if(ar) ar.innerHTML=`
-        Posição: (${overlayPos.cx.toFixed(1)}%, ${overlayPos.cy.toFixed(1)}%)<br>
-        Tom de pele: ${aiData.skin_tone||'—'}<br>
-        Tamanho base: ${aiData.estimated_cup_size||'—'}<br>
-        ${aiData.notes?'<br>'+aiData.notes:''}`;
-    }
-
-    // Update skin color based on AI detection
-    if(aiData?.skin_tone) applySkinTone(aiData.skin_tone);
-
-    if(!window.THREE) loadThreeJS(()=>{initThreeJS();buildBodyMesh();});
-    else {initThreeJS();buildBodyMesh();}
-
-    buildPhotoThumbs();
-    loadPhotoView(0);
-    refreshStyles(); updateBadge();
-    setVMode('3D');
+  async function loadAllImages(){
+    const promises=photos.map((src,i)=>new Promise(res=>{
+      if(!src){res();return;}
+      const img=new Image();img.crossOrigin='anonymous';img.src=src;
+      img.onload=()=>{baseImages[i]=img;res();};
+      img.onerror=res;
+    }));
+    await Promise.all(promises);
   }
 
-  // ── SKIN TONE ─────────────────────────────────────
-  function applySkinTone(tone){
-    const tones={fair:{body:0xead5be,breast:0xe2c4a8},medium:{body:0xd4906a,breast:0xce8460},olive:{body:0xc07850,breast:0xb86e45},dark:{body:0x9a5a32,breast:0x8f5028}};
-    window._simSkinTone=tones[tone]||tones.medium;
-  }
+  // ── CANVAS RENDERING ──────────────────────────────
+  function renderToCanvas(canvasId, photoIdx, withAugmentation){
+    const canvas=document.getElementById(canvasId);
+    if(!canvas)return;
+    const img=baseImages[photoIdx];
+    if(!img){canvas.width=400;canvas.height=600;return;}
 
-  // ── THREE.JS ──────────────────────────────────────
-  function loadThreeJS(cb){
-    if(window.THREE){cb();return;}
-    const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-    s.onload=cb; document.head.appendChild(s);
-  }
+    canvas.width=img.naturalWidth;
+    canvas.height=img.naturalHeight;
+    const ctx=canvas.getContext('2d');
 
-  function initThreeJS(){
-    const canvas=document.getElementById('three-canvas');
-    if(!canvas||!window.THREE||renderer)return;
-    const W=canvas.offsetWidth||800,H=canvas.offsetHeight||600;
-    renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
-    renderer.setSize(W,H);renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-    renderer.shadowMap.enabled=true;
-    renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure=1.25;
-    renderer.outputEncoding=THREE.sRGBEncoding;
+    // Draw original photo
+    ctx.drawImage(img,0,0);
 
-    scene=new THREE.Scene();scene.background=new THREE.Color(0x08080f);
-    scene.fog=new THREE.FogExp2(0x08080f,.06);
+    if(!withAugmentation||!aiData)return;
 
-    camera=new THREE.PerspectiveCamera(38,W/H,.1,100);
-    camera.position.set(0,.3,3.2);camera.lookAt(0,.2,0);
+    const W=img.naturalWidth, H=img.naturalHeight;
 
-    // Professional studio lighting
-    scene.add(new THREE.AmbientLight(0xfff5ee,.45));
-    // Key light (main, from upper front-left)
-    const kl=new THREE.DirectionalLight(0xfff8f0,2.2);
-    kl.position.set(1.8,3.5,2.5);kl.castShadow=true;
-    kl.shadow.mapSize.width=2048;kl.shadow.mapSize.height=2048;
-    scene.add(kl);
-    // Fill light (soft, from right)
-    const fl=new THREE.DirectionalLight(0xffeedd,.8);fl.position.set(-2.5,1,1.5);scene.add(fl);
-    // Rim/back light (separates from background)
-    const rl=new THREE.DirectionalLight(0xddeeff,.5);rl.position.set(0,0.5,-3);scene.add(rl);
-    // Under fill (removes harsh shadows under chin/breasts)
-    const ul=new THREE.DirectionalLight(0xfff0e0,.3);ul.position.set(0,-2,1);scene.add(ul);
-    // Warm point light (simulates bounce from below)
-    const pl=new THREE.PointLight(0xffddbb,.35,6);pl.position.set(0,-0.5,2);scene.add(pl);
+    // Get AI-detected positions (convert % to pixels)
+    const lx=(aiData.breast_left_x/100)*W;
+    const ly=(aiData.breast_left_y/100)*H;
+    const rx=(aiData.breast_right_x/100)*W;
+    const ry=(aiData.breast_right_y/100)*H;
 
-    breastGroup=new THREE.Group();scene.add(breastGroup);
-    (function animate(){animId=requestAnimationFrame(animate);if(renderer&&scene&&camera)renderer.render(scene,camera);})();
+    // Skin color from AI analysis
+    const sr=aiData.skin_r||200, sg=aiData.skin_g||160, sb=aiData.skin_b||130;
 
-    // Drag
-    canvas.addEventListener('mousedown',e=>{isDragging=true;lastMouse={x:e.clientX,y:e.clientY};canvas.style.cursor='grabbing';});
-    window.addEventListener('mousemove',e=>{
-      if(!isDragging)return;
-      const dx=e.clientX-lastMouse.x,dy=e.clientY-lastMouse.y;
-      rotY+=dx*.005;rotX=Math.max(-.55,Math.min(.55,rotX+dy*.003));
-      if(breastGroup){breastGroup.rotation.y=rotY;breastGroup.rotation.x=rotX;}
-      lastMouse={x:e.clientX,y:e.clientY};
-    });
-    window.addEventListener('mouseup',()=>{isDragging=false;if(canvas)canvas.style.cursor='grab';});
-
-    window.addEventListener('resize',()=>{
-      if(!renderer||!camera||!canvas)return;
-      const W2=canvas.offsetWidth,H2=canvas.offsetHeight;
-      renderer.setSize(W2,H2);camera.aspect=W2/H2;camera.updateProjectionMatrix();
-    });
-  }
-
-  function buildBodyMesh(){
-    if(!breastGroup||!window.THREE)return;
-    while(breastGroup.children.length)breastGroup.remove(breastGroup.children[0]);
-
-    const skin=window._simSkinTone||{body:0xd4906a,breast:0xce8460};
-
-    // Realistic skin material with subsurface-like effect
-    const skinMat=new THREE.MeshStandardMaterial({
-      color:new THREE.Color(skin.body),
-      roughness:.72, metalness:.0,
-      envMapIntensity:.15,
-    });
-    const darkMat=new THREE.MeshStandardMaterial({
-      color:new THREE.Color(skin.body).multiplyScalar(.82),
-      roughness:.75, metalness:.0,
-    });
-    const breastMat=new THREE.MeshStandardMaterial({
-      color:new THREE.Color(skin.breast),
-      roughness:.68, metalness:.0,
-    });
-
-    // ── LATHE TORSO (female silhouette profile) ──────
-    // Points define the right-side profile of the torso: [x=radius, y=height]
-    // Designed for realistic female proportions
-    const torsoPoints = [
-      new THREE.Vector2(0.00,  1.18),  // top of neck
-      new THREE.Vector2(0.10,  1.10),  // neck base
-      new THREE.Vector2(0.38,  0.90),  // shoulder slope start
-      new THREE.Vector2(0.50,  0.70),  // shoulder width
-      new THREE.Vector2(0.52,  0.52),  // shoulder/chest
-      new THREE.Vector2(0.48,  0.32),  // upper chest
-      new THREE.Vector2(0.46,  0.10),  // chest level (breasts here)
-      new THREE.Vector2(0.44, -0.05),  // under bust
-      new THREE.Vector2(0.38, -0.22),  // waist (narrow)
-      new THREE.Vector2(0.36, -0.38),  // waist tightest
-      new THREE.Vector2(0.40, -0.55),  // hip flare starts
-      new THREE.Vector2(0.46, -0.75),  // hip width
-      new THREE.Vector2(0.48, -0.90),  // lower hip
-      new THREE.Vector2(0.44, -1.10),  // thigh top
-      new THREE.Vector2(0.00, -1.10),  // center bottom
-    ];
-    const torsoGeo = new THREE.LatheGeometry(torsoPoints, 48);
-    // Flatten slightly front-back for more realistic shape
-    const torsoPos = torsoGeo.attributes.position;
-    for(let i=0;i<torsoPos.count;i++){
-      torsoPos.setZ(i, torsoPos.getZ(i)*.82);
-      // Add slight forward tilt to chest area
-      const y = torsoPos.getY(i);
-      if(y > -0.1 && y < 0.6){
-        const fwd = Math.sin((y+0.1)/0.7*Math.PI) * 0.04;
-        torsoPos.setZ(i, torsoPos.getZ(i) + fwd);
-      }
-    }
-    torsoPos.needsUpdate=true;
-    torsoGeo.computeVertexNormals();
-    const torso=new THREE.Mesh(torsoGeo, skinMat);
-    torso.castShadow=true; torso.receiveShadow=true;
-    breastGroup.add(torso);
-
-    // ── NECK ──
-    const neckPoints=[
-      new THREE.Vector2(.095, 1.18),
-      new THREE.Vector2(.105, 1.28),
-      new THREE.Vector2(.10,  1.38),
-      new THREE.Vector2(.09,  1.46),
-    ];
-    const neckGeo=new THREE.LatheGeometry(neckPoints,20);
-    neckGeo.computeVertexNormals();
-    const neck=new THREE.Mesh(neckGeo,skinMat);breastGroup.add(neck);
-
-    // ── HEAD (oval, not sphere) ──
-    const headGeo=new THREE.SphereGeometry(1,28,22);
-    const headPos=headGeo.attributes.position;
-    for(let i=0;i<headPos.count;i++){
-      headPos.setX(i,headPos.getX(i)*.195);
-      headPos.setY(i,headPos.getY(i)*.235);
-      headPos.setZ(i,headPos.getZ(i)*.175);
-    }
-    headPos.needsUpdate=true;headGeo.computeVertexNormals();
-    const head=new THREE.Mesh(headGeo,skinMat);
-    head.position.set(0,1.64,0.02);breastGroup.add(head);
-
-    // Hair cap (darker, slightly larger)
-    const hairGeo=new THREE.SphereGeometry(1,20,16);
-    const hairPos=hairGeo.attributes.position;
-    for(let i=0;i<hairPos.count;i++){
-      if(hairPos.getY(i)<0){hairPos.setY(i,0);continue;}
-      hairPos.setX(i,hairPos.getX(i)*.21);
-      hairPos.setY(i,hairPos.getY(i)*.26);
-      hairPos.setZ(i,hairPos.getZ(i)*.195);
-    }
-    hairPos.needsUpdate=true;hairGeo.computeVertexNormals();
-    const hairMat=new THREE.MeshStandardMaterial({color:new THREE.Color(0x3a2010),roughness:.9,metalness:.0});
-    const hair=new THREE.Mesh(hairGeo,hairMat);
-    hair.position.set(0,1.64,0);breastGroup.add(hair);
-
-    // ── ARMS (angled down at sides, natural pose) ──
-    [-1,1].forEach(side=>{
-      // Upper arm — angled ~20deg from vertical
-      const uaGeo=new THREE.CylinderGeometry(.065,.075,.38,16,1);
-      uaGeo.computeVertexNormals();
-      const ua=new THREE.Mesh(uaGeo,skinMat);
-      ua.position.set(side*.56, .38, 0);
-      ua.rotation.z = side * (-0.35); // slight outward angle
-      ua.rotation.x = 0.15;           // slight forward
-      ua.castShadow=true;
-      breastGroup.add(ua);
-
-      // Elbow sphere
-      const elGeo=new THREE.SphereGeometry(.068,14,10);
-      const el=new THREE.Mesh(elGeo,skinMat);
-      el.position.set(side*.62, .14, .04);
-      breastGroup.add(el);
-
-      // Forearm
-      const faGeo=new THREE.CylinderGeometry(.055,.065,.36,16,1);
-      const fa=new THREE.Mesh(faGeo,skinMat);
-      fa.position.set(side*.67, -.12, .06);
-      fa.rotation.z = side * (-0.22);
-      fa.rotation.x = 0.25;
-      fa.castShadow=true;
-      breastGroup.add(fa);
-
-      // Hand (simple oval)
-      const hGeo=new THREE.SphereGeometry(1,12,10);
-      const hPos=hGeo.attributes.position;
-      for(let i=0;i<hPos.count;i++){hPos.setX(i,hPos.getX(i)*.052);hPos.setY(i,hPos.getY(i)*.085);hPos.setZ(i,hPos.getZ(i)*.04);}
-      hPos.needsUpdate=true;hGeo.computeVertexNormals();
-      const hand=new THREE.Mesh(hGeo,darkMat);
-      hand.position.set(side*.72, -.35, .10);
-      breastGroup.add(hand);
-
-      // Collarbone ridge
-      const cbGeo=new THREE.CylinderGeometry(.018,.022,.32,8);
-      cbGeo.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI/2));
-      const cb=new THREE.Mesh(cbGeo,darkMat);
-      cb.position.set(side*.22,.88,.32);
-      cb.rotation.y=side*.18;
-      cb.rotation.x=-.12;
-      breastGroup.add(cb);
-    });
-
-    // ── PELVIS / UNDERWEAR (bottom of torso) ──
-    const pelGeo=new THREE.SphereGeometry(1,24,10,0,Math.PI*2,0,Math.PI*.55);
-    const pelPos=pelGeo.attributes.position;
-    for(let i=0;i<pelPos.count;i++){
-      pelPos.setX(i,pelPos.getX(i)*.46);
-      pelPos.setY(i,pelPos.getY(i)*.22-1.08);
-      pelPos.setZ(i,pelPos.getZ(i)*.38);
-    }
-    pelPos.needsUpdate=true;pelGeo.computeVertexNormals();
-    const pelMat=new THREE.MeshStandardMaterial({color:new THREE.Color(0x1a1a2e),roughness:.85,metalness:.0});
-    const pel=new THREE.Mesh(pelGeo,pelMat);breastGroup.add(pel);
-
-    // ── BREASTS ──
-    if(showAfter) buildBreasts(breastMat);
-
-    breastGroup.rotation.y=rotY;
-    breastGroup.rotation.x=rotX;
-  }
-
-  function buildBreasts(mat){
-    if(!window.THREE||!breastGroup)return;
-    breastGroup.children.filter(c=>c.userData.isBreast).forEach(c=>breastGroup.remove(c));
-
+    // Size based on volume
     const vol=P.volume;
-    const scale=.62+(vol-100)/700*1.05;
-    const pm={low:.62,mod:1,high:1.38,xh:1.68}[P.perfil]||1;
-    const sf=P.simetrico?1:.93;
-    const aiShift=aiData?.inter_breast_gap_percent?(aiData.inter_breast_gap_percent/100)*.16:.175;
+    const sizeScale=0.7+(vol-100)/700*1.1;
+    const pm={low:.65,mod:1,high:1.35,xh:1.65}[P.perfil]||1;
+    const baseRx=(aiData.breast_radius_x/100)*W*sizeScale;
+    const baseRy=(aiData.breast_radius_y/100)*H*sizeScale;
+    const projRy=baseRy*pm;
+    const sf=P.simetrico?1:.94;
 
-    [-1,1].forEach((side,si)=>{
-      const sx=si===0?1:sf;
-      const rx=.145*scale*sx;
-      const rz=.125*scale*pm;
-      const ry=.138*scale*sx;
+    // Only show augmentation in photo mode for front view
+    if(photoIdx!==1&&photoIdx!==0)return;
 
-      const geo=new THREE.SphereGeometry(1,32,26);
-      const pos=geo.attributes.position;
-      for(let i=0;i<pos.count;i++){
-        const y=pos.getY(i), z=pos.getZ(i);
-        // Teardrop: heavier bottom
-        const dropF=P.formato==='tear'&&y<0?1+Math.abs(y)*.4:1;
-        // Oval: wider X
-        const ovalFx=P.formato==='oval'?1.18:1;
-        // Flatten back side (toward chest)
-        const backF=z<0?Math.max(.15,1+z*.4):1;
-        pos.setX(i,pos.getX(i)*rx*ovalFx*dropF);
-        pos.setY(i,y*ry*dropF);
-        pos.setZ(i,z*rz*backF);
+    // Draw augmented breasts on canvas
+    function drawBreast(cx, cy, radX, radY, side){
+      ctx.save();
+
+      // Main breast gradient (matches skin)
+      const grd=ctx.createRadialGradient(
+        cx-radX*.2, cy-radY*.3, radX*.05,
+        cx, cy, Math.max(radX,radY)*1.1
+      );
+      grd.addColorStop(0,   `rgba(${Math.min(255,sr+30)},${Math.min(255,sg+25)},${Math.min(255,sb+20)},0.88)`);
+      grd.addColorStop(0.45,`rgba(${sr},${sg},${sb},0.82)`);
+      grd.addColorStop(0.75,`rgba(${Math.max(0,sr-20)},${Math.max(0,sg-18)},${Math.max(0,sb-15)},0.55)`);
+      grd.addColorStop(1,   `rgba(${Math.max(0,sr-35)},${Math.max(0,sg-30)},${Math.max(0,sb-25)},0.0)`);
+
+      // Draw breast ellipse (larger than original)
+      ctx.beginPath();
+      if(P.formato==='tear'){
+        // Teardrop — elongated bottom
+        ctx.ellipse(cx, cy+radY*.12, radX, radY*1.1, 0, 0, Math.PI*2);
+      } else if(P.formato==='oval'){
+        ctx.ellipse(cx, cy, radX*1.1, radY, 0, 0, Math.PI*2);
+      } else {
+        ctx.ellipse(cx, cy, radX, radY, 0, 0, Math.PI*2);
       }
-      pos.needsUpdate=true;geo.computeVertexNormals();
+      ctx.fillStyle=grd;
+      ctx.fill();
 
-      // Slight downward angle (ptosis simulation based on volume)
-      const ptosisAngle = Math.min(.18, (vol-100)/700*.22);
-      const breast=new THREE.Mesh(geo,mat.clone());
-      breast.position.set(side*aiShift, .16-.04*scale, .38);
-      breast.rotation.x = ptosisAngle; // natural sag
-      breast.rotation.z = side * -0.06; // slight outward lean
-      breast.castShadow=true;breast.userData.isBreast=true;
-      breastGroup.add(breast);
+      // Highlight (upper area)
+      const hGrd=ctx.createRadialGradient(
+        cx-radX*.25, cy-radY*.35, 0,
+        cx-radX*.25, cy-radY*.35, radX*.65
+      );
+      hGrd.addColorStop(0,`rgba(255,245,240,0.22)`);
+      hGrd.addColorStop(1,`rgba(255,255,255,0)`);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, radX, radY, 0, 0, Math.PI*2);
+      ctx.fillStyle=hGrd;
+      ctx.fill();
 
-      // Areola
-      const arGeo=new THREE.CircleGeometry(.038+scale*.012,16);
-      const arMat=new THREE.MeshStandardMaterial({color:new THREE.Color(0x7a3820),roughness:.85,side:THREE.FrontSide});
-      const ar=new THREE.Mesh(arGeo,arMat);
-      ar.position.set(side*aiShift, .16-.04*scale+ry*.12, .38+rz*.88);
-      ar.rotation.x = ptosisAngle+.15;
-      ar.userData.isBreast=true;breastGroup.add(ar);
+      // Shadow (under breast)
+      const shGrd=ctx.createRadialGradient(
+        cx, cy+radY*.75, 0,
+        cx, cy+radY*.75, radX*.9
+      );
+      shGrd.addColorStop(0,`rgba(${Math.max(0,sr-60)},${Math.max(0,sg-55)},${Math.max(0,sb-50)},0.35)`);
+      shGrd.addColorStop(1,`rgba(0,0,0,0)`);
+      ctx.fillStyle=shGrd;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy+radY*.55, radX*.95, radY*.6, 0, 0, Math.PI*2);
+      ctx.fill();
 
-      // Nipple
-      const nipGeo=new THREE.SphereGeometry(.018+scale*.006,10,8);
-      const nipMat=new THREE.MeshStandardMaterial({color:new THREE.Color(0x6a2e18),roughness:.8});
-      const nip=new THREE.Mesh(nipGeo,nipMat);
-      nip.position.set(side*aiShift, .16-.04*scale+ry*.12, .38+rz*.95);
-      nip.rotation.x = ptosisAngle+.15;
-      nip.userData.isBreast=true;breastGroup.add(nip);
+      ctx.restore();
+    }
+
+    // Apply composite mode for blending
+    ctx.globalCompositeOperation='source-over';
+    drawBreast(lx, ly, baseRx, projRy, -1);
+    drawBreast(rx, ry, baseRx*sf, projRy*sf, 1);
+    ctx.globalCompositeOperation='source-over';
+  }
+
+  function renderCurrentView(){
+    const idx=currentView;
+    const mc=document.getElementById('main-canvas');if(mc){renderToCanvas('main-canvas',idx,showAfter);}
+
+    // Also update side-by-side if active
+    if(isSbsMode){
+      renderToCanvas('canvas-before',idx,false);
+      renderToCanvas('canvas-after',idx,true);
+    }
+
+    // Update badge
+    updateBadge();
+  }
+
+  // ── ACCEPT SCREEN ─────────────────────────────────
+  function showAcceptScreen(){
+    document.getElementById('step-proc').style.display='none';
+    const sa=document.getElementById('step-accept');sa.style.removeProperty('display');sa.style.display='flex';
+    // Show the FRONTAL view augmented on preview canvas
+    renderToCanvas('preview-canvas',1,true);
+  }
+
+  window.refazer3D=function(){
+    document.getElementById('step-accept').style.display='none';
+    const su=document.getElementById('step-upload');su.style.removeProperty('display');su.style.display='flex';
+  };
+
+  window.aceitar3D=function(){
+    document.getElementById('step-accept').style.display='none';
+    const sv=document.getElementById('step-viewer');sv.style.removeProperty('display');sv.style.display='block';
+    document.getElementById('sim-top-actions').style.removeProperty('display');
+    document.getElementById('sim-top-actions').style.display='flex';
+
+    // Update AI results panel
+    const ar=document.getElementById('ai-results');
+    if(ar&&aiData)ar.innerHTML=`Copa base: ${aiData.cup_size||'—'}<br>Pele: rgb(${aiData.skin_r||'—'},${aiData.skin_g||'—'},${aiData.skin_b||'—'})<br>${aiData.notes||''}`;
+
+    buildViewThumbs();
+    setCurrentView(1); // start on FRENTE
+    refreshStyles();updateBadge();
+  };
+
+  window.rateQuality=function(n){
+    [1,2,3,4,5].forEach(i=>{
+      const s=document.getElementById('star-'+i);
+      if(s)s.style.color=i<=n?'#fbbf24':'rgba(255,255,255,.2)';
     });
+  };
 
-    // Décolletage shadow between breasts
-    const decGeo=new THREE.SphereGeometry(.045,.05,.08,8,8);
-    const decMat=new THREE.MeshStandardMaterial({color:new THREE.Color(skin.body||0xd4906a).multiplyScalar(.7),roughness:.9,transparent:true,opacity:.5});
-    // skip if too complex
-  }
-
-  // ── PHOTO OVERLAY ─────────────────────────────────
-  function loadPhotoView(idx){
-    currentPhotoIdx=idx;
-    const img=document.getElementById('photo-base');
-    if(!img||!photos[idx])return;
-    img.src=photos[idx];
-    img.onload=()=>updatePhotoOverlay();
-    [0,1,2].forEach(i=>{const t=document.getElementById('pthumb-'+i);if(t)t.style.borderColor=i===idx?'var(--sim)':'var(--border)';});
-  }
-
-  function buildPhotoThumbs(){
+  // ── PHOTO NAVIGATION ──────────────────────────────
+  function buildViewThumbs(){
     const c=document.getElementById('view-thumbs');if(!c)return;
-    const lb=['Frontal','Lat.D','Lat.E'];
+    const lb=['Esq','Frente','Dir'];
     c.innerHTML=photos.map((s,i)=>s?`
-    <div id="pthumb-${i}" onclick="swPhoto(${i})" style="cursor:pointer;border:2px solid ${i===0?'var(--sim)':'var(--border)'};border-radius:8px;overflow:hidden">
+    <div id="vthumb-${i}" onclick="setCurrentView(${i})" style="cursor:pointer;border:2px solid ${i===currentView?'var(--sim)':'var(--border)'};border-radius:8px;overflow:hidden;transition:border-color .15s">
       <img src="${s}" style="width:44px;height:60px;object-fit:cover;display:block"/>
-      <div style="font-size:8px;color:rgba(255,255,255,.6);text-align:center;padding:2px;background:rgba(0,0,0,.5)">${lb[i]}</div>
+      <div style="font-size:8px;color:rgba(255,255,255,.6);text-align:center;padding:2px;background:rgba(0,0,0,.55)">${lb[i]}</div>
     </div>`:'').join('');
   }
-  window.swPhoto=loadPhotoView;
 
-  function updatePhotoOverlay(){
-    const ids=['poL','poR','hlpL','hlpR','ebL','ebR'];
-    if(!showAfter){ids.forEach(id=>{const e=document.getElementById(id);if(e)e.setAttribute('d','');});return;}
-
-    const W=400,H=600;
-    // Use AI-detected positions or fallback
-    let lx,ly,rx2,ry2;
-    if(aiData?.breast_left_center_x){
-      lx=(aiData.breast_left_center_x/100)*W;
-      rx2=(aiData.breast_right_center_x/100)*W;
-      ly=(aiData.breast_left_center_y/100)*H;
-      ry2=(aiData.breast_right_center_y/100)*H;
-    } else {
-      const cx=(overlayPos.cx/100)*W,cy=(overlayPos.cy/100)*H;
-      const gap=aiData?.inter_breast_gap_percent?(aiData.inter_breast_gap_percent/100)*W:46;
-      lx=cx-gap/2;rx2=cx+gap/2;ly=cy;ry2=cy;
-    }
-
-    const vol=P.volume;
-    const baseR=24+(vol-100)/700*52;
-    const pm={low:.68,mod:1,high:1.32,xh:1.58}[P.perfil]||1;
-    const bRx=baseR*({round:1,oval:.88,tear:.83}[P.formato]||1);
-    const bRy=baseR*pm*({round:.9,oval:1.02,tear:1.12}[P.formato]||.9);
-    const sf=P.simetrico?1:.93;
-
-    function rp(x,y,rx3,ry3){return `M${x},${y-ry3} C${x+rx3*1.1},${y-ry3} ${x+rx3},${y+ry3*.55} ${x+rx3*.78},${y+ry3*.75} C${x+rx3*.42},${y+ry3} ${x-rx3*.42},${y+ry3} ${x-rx3*.78},${y+ry3*.75} C${x-rx3},${y+ry3*.55} ${x-rx3*1.1},${y-ry3} ${x},${y-ry3}Z`;}
-    function tp(x,y,rx3,ry3){const t=y-ry3*.52,b=y+ry3*.6;return `M${x},${t} C${x+rx3},${t} ${x+rx3*1.1},${y} ${x+rx3*.88},${b} C${x+rx3*.44},${b+ry3*.2} ${x-rx3*.44},${b+ry3*.2} ${x-rx3*.88},${b} C${x-rx3*1.1},${y} ${x-rx3},${t} ${x},${t}Z`;}
-
-    const pfn=P.formato==='tear'?tp:rp;
-    const pL=pfn(lx,ly,bRx,bRy),pR=pfn(rx2,ry2,bRx*sf,bRy*sf);
-
-    document.getElementById('poL')?.setAttribute('d',pL);
-    document.getElementById('poR')?.setAttribute('d',pR);
-    document.getElementById('hlpL')?.setAttribute('d',pL);
-    document.getElementById('hlpR')?.setAttribute('d',pR);
-    document.getElementById('ebL')?.setAttribute('d',pL);
-    document.getElementById('ebR')?.setAttribute('d',pR);
-
-    // Update shadow ellipses
-    document.getElementById('shL')?.setAttribute('cx',lx);
-    document.getElementById('shL')?.setAttribute('cy',ly+bRy+4);
-    document.getElementById('shL')?.setAttribute('rx',bRx*.7);
-    document.getElementById('shR')?.setAttribute('cx',rx2);
-    document.getElementById('shR')?.setAttribute('cy',ry2+bRy*sf+4);
-    document.getElementById('shR')?.setAttribute('rx',bRx*.7*sf);
-
-    // Show AI dot landmarks
-    document.getElementById('ai-dot-L')?.setAttribute('cx',lx);
-    document.getElementById('ai-dot-L')?.setAttribute('cy',ly);
-    document.getElementById('ai-dot-R')?.setAttribute('cx',rx2);
-    document.getElementById('ai-dot-R')?.setAttribute('cy',ry2);
-  }
-
-  // Overlay drag
-  window.handleDragStart=function(e){
-    e.stopPropagation();
-    const img=document.getElementById('photo-base');if(!img)return;
-    const r=img.getBoundingClientRect();
-    const ds={sx:e.clientX,sy:e.clientY,scx:overlayPos.cx,scy:overlayPos.cy,w:r.width,h:r.height};
-    const mmv=ev=>{
-      overlayPos.cx=Math.max(15,Math.min(85,ds.scx+(ev.clientX-ds.sx)/ds.w*100));
-      overlayPos.cy=Math.max(15,Math.min(70,ds.scy+(ev.clientY-ds.sy)/ds.h*100));
-      // Update aiData positions too
-      if(aiData){
-        const dx=overlayPos.cx-((aiData.breast_left_center_x+aiData.breast_right_center_x)/2);
-        const dy=overlayPos.cy-((aiData.breast_left_center_y+aiData.breast_right_center_y)/2);
-        aiData.breast_left_center_x+=dx;aiData.breast_left_center_y+=dy;
-        aiData.breast_right_center_x+=dx;aiData.breast_right_center_y+=dy;
-      }
-      updatePhotoOverlay();
-    };
-    document.addEventListener('mousemove',mmv);
-    document.addEventListener('mouseup',()=>document.removeEventListener('mousemove',mmv),{once:true});
-  };
-
-  // ── VIEW MODE ─────────────────────────────────────
-  window.setVMode=function(mode){
-    currentMode=mode;
-    const tc=document.getElementById('three-canvas'),pm=document.getElementById('photo-mode');
-    const vt=document.getElementById('view-thumbs');
-    if(mode==='3D'){
-      if(tc)tc.style.display='block';
-      if(pm)pm.style.display='none';
-      if(vt)vt.style.display='none';
-      buildBodyMesh();
-    } else {
-      if(tc)tc.style.display='none';
-      if(pm){pm.style.removeProperty('display');pm.style.display='flex';}
-      if(vt)vt.style.display='flex';
-      updatePhotoOverlay();
-    }
-    ['3D','Foto'].forEach(m=>{const b=document.getElementById('vmode-'+m);if(b){b.style.background=m===mode?'var(--s3)':'';b.style.color=m===mode?'var(--text)':'';}});
+  window.setCurrentView=function(idx){
+    currentView=idx;
+    [0,1,2].forEach(i=>{const t=document.getElementById('vthumb-'+i);if(t)t.style.borderColor=i===idx?'var(--sim)':'var(--border)';});
+    renderCurrentView();
   };
 
   // ── BEFORE/AFTER ──────────────────────────────────
   window.setBA=function(after){
     showAfter=after;
     const ba=document.getElementById('ba-a'),bb=document.getElementById('ba-b');
+    const bt=document.getElementById('before-tag');
     if(ba){ba.style.background=after?'rgba(167,139,250,.9)':'rgba(167,139,250,.25)';ba.style.color=after?'white':'rgba(255,255,255,.5)';}
     if(bb){bb.style.background=!after?'rgba(255,255,255,.18)':'rgba(255,255,255,.06)';bb.style.color=!after?'white':'rgba(255,255,255,.4)';}
-    if(currentMode==='3D'){
-      breastGroup&&breastGroup.children.filter(c=>c.userData.isBreast).forEach(c=>c.visible=after);
+    if(bt)bt.style.display=!after?'block':'none';
+    renderCurrentView();
+  };
+
+  window.toggleSideBySide=function(){
+    isSbsMode=!isSbsMode;
+    const vn=document.getElementById('view-normal'),vs=document.getElementById('view-sbs');
+    const btn=document.getElementById('btn-sbs');
+    if(isSbsMode){
+      if(vn)vn.style.display='none';
+      if(vs){vs.style.removeProperty('display');vs.style.display='flex';}
+      if(btn)btn.style.background='var(--s3)';
+      renderToCanvas('canvas-before',currentView,false);
+      renderToCanvas('canvas-after',currentView,true);
     } else {
-      if(after) buildBodyMesh();
-      updatePhotoOverlay();
+      if(vn)vn.style.display='flex';
+      if(vs)vs.style.display='none';
+      if(btn)btn.style.background='';
+      renderCurrentView();
     }
+  };
+
+  // ── ZOOM ──────────────────────────────────────────
+  window.doZoom=function(f){
+    zoomScale=Math.max(.35,Math.min(3,zoomScale*f));
+    const vn=document.getElementById('view-normal');
+    if(vn)vn.style.transform=`scale(${zoomScale})`;
   };
 
   // ── PARAMS ────────────────────────────────────────
   window.ap=function(key,delta){
     if(key==='volume'){P.volume=Math.max(100,Math.min(800,P.volume+delta));document.getElementById('sv').value=P.volume;document.getElementById('dv').textContent=P.volume+' cc';}
     if(key==='diam'){P.diam=Math.max(8,Math.min(16,+(P.diam+delta).toFixed(1)));document.getElementById('sd').value=P.diam;document.getElementById('dd').textContent=P.diam.toString().replace('.',',')+' cm';}
-    refreshView();
+    renderCurrentView();
   };
   window.sp2=function(key,val){
     if(key==='volume'){P.volume=+val;document.getElementById('dv').textContent=val+' cc';}
     if(key==='diam'){P.diam=+val;document.getElementById('dd').textContent=(+val).toString().replace('.',',')+' cm';}
-    refreshView();
+    renderCurrentView();
   };
-  window.sp=function(key,val){P[key]=val;refreshStyles();refreshView();};
+  window.sp=function(key,val){P[key]=val;refreshStyles();renderCurrentView();};
   window.toggleSym=function(){
     P.simetrico=!P.simetrico;
     document.getElementById('sym-t').style.background=P.simetrico?'var(--sim)':'var(--border)';
     document.getElementById('sym-k').style.transform=P.simetrico?'translateX(18px)':'translateX(0)';
-    refreshView();
+    renderCurrentView();
   };
 
-  function refreshView(){
-    updateBadge();
-    if(currentMode==='3D')buildBodyMesh();
-    else updatePhotoOverlay();
-  }
   function refreshStyles(){
     ['round','oval','tear'].forEach(k=>{
-      ['fmt-','fi-'].forEach(p=>{
-        const el=document.getElementById(p+k);
-        if(el){el.style.borderColor=P.formato===k?'var(--sim)':'var(--border)';el.style.color=P.formato===k?'var(--sim)':'var(--muted)';el.style.background=P.formato===k?'rgba(167,139,250,.1)':'';}
-      });
+      ['fmt-','fi-'].forEach(p=>{const el=document.getElementById(p+k);if(el){el.style.borderColor=P.formato===k?'var(--sim)':'var(--border)';el.style.color=P.formato===k?'var(--sim)':'var(--muted)';el.style.background=P.formato===k?'rgba(167,139,250,.1)':'';}});
     });
-    ['low','mod','high','xh'].forEach(k=>{
-      const el=document.getElementById('pi-'+k);
-      if(el){el.style.borderColor=P.perfil===k?'var(--sim)':'var(--border)';el.style.color=P.perfil===k?'var(--sim)':'var(--muted)';el.style.background=P.perfil===k?'rgba(167,139,250,.1)':'';}
-    });
-    ['sub','subg','dual'].forEach(k=>{
-      const el=document.getElementById('mi-'+k);
-      if(el){el.style.borderColor=P.metodo===k?'var(--sim)':'var(--border)';el.style.background=P.metodo===k?'rgba(167,139,250,.1)':'';}
-    });
+    ['low','mod','high','xh'].forEach(k=>{const el=document.getElementById('pi-'+k);if(el){el.style.borderColor=P.perfil===k?'var(--sim)':'var(--border)';el.style.color=P.perfil===k?'var(--sim)':'var(--muted)';el.style.background=P.perfil===k?'rgba(167,139,250,.1)':'';}});
+    ['sub','subg','dual'].forEach(k=>{const el=document.getElementById('mi-'+k);if(el){el.style.borderColor=P.metodo===k?'var(--sim)':'var(--border)';el.style.background=P.metodo===k?'rgba(167,139,250,.1)':'';}});
   }
   function updateBadge(){
     const pl={low:'Baixo',mod:'Moderado',high:'Alto',xh:'Extra alto'};
@@ -2448,35 +2165,21 @@ Return ONLY the JSON object, no other text.`;
     s('ib-perf','Perfil '+pl[P.perfil]);s('ib-fmt',fl[P.formato]);
   }
 
-  // ── ZOOM ──────────────────────────────────────────
-  window.doZoom=function(f){
-    if(currentMode==='3D'&&camera){camera.position.z=Math.max(1.5,Math.min(8,camera.position.z*f));}
-    else{const w=document.getElementById('photo-sim-wrap');if(w){const cz=parseFloat(w.dataset.z||1)*f;w.dataset.z=cz;w.style.transform=`scale(${Math.max(.35,Math.min(3,cz))})`;};}
-  };
-
   // ── TABS / SECTIONS ───────────────────────────────
   window.setTab=function(t){
     document.getElementById('panel-proc').style.display=t==='proc'?'flex':'none';
     document.getElementById('panel-tools').style.display=t==='tools'?'block':'none';
-    ['proc','tools'].forEach(id=>{
-      const b=document.getElementById('tab-'+id);
-      if(b){b.style.background=id===t?'var(--s2)':'transparent';b.style.borderBottomColor=id===t?'var(--sim)':'transparent';b.style.color=id===t?'var(--text)':'var(--muted)';}
-    });
+    ['proc','tools'].forEach(id=>{const b=document.getElementById('tab-'+id);if(b){b.style.background=id===t?'var(--s2)':'transparent';b.style.borderBottomColor=id===t?'var(--sim)':'transparent';b.style.color=id===t?'var(--text)':'var(--muted)';}});
   };
-  window.sec=function(k){
-    const bd=document.getElementById(k+'-bd'),ic=document.getElementById(k+'-ico');
-    if(!bd)return;const o=bd.style.display!=='none';
-    bd.style.display=o?'none':'block';if(ic)ic.textContent=o?'+':'−';
-  };
+  window.sec=function(k){const b=document.getElementById(k+'-bd'),ic=document.getElementById(k+'-ico');if(!b)return;const o=b.style.display!=='none';b.style.display=o?'none':'block';if(ic)ic.textContent=o?'+':'−';};
+  window.toolAction=function(t){if(t==='Comparar')window.toggleSideBySide();};
 
   // ── RESET ─────────────────────────────────────────
   window.resetSim=function(){
-    if(animId)cancelAnimationFrame(animId);renderer=null;scene=null;camera=null;breastGroup=null;
-    photos=[null,null,null];aiData=null;
-    document.getElementById('step-viewer').style.display='none';
+    photos=[null,null,null];aiData=null;baseImages=[null,null,null];
+    ['step-viewer','step-accept'].forEach(id=>document.getElementById(id).style.display='none');
     document.getElementById('sim-top-actions').style.display='none';
-    const su=document.getElementById('step-upload');
-    su.style.removeProperty('display');su.style.display='flex';
+    const su=document.getElementById('step-upload');su.style.removeProperty('display');su.style.display='flex';
     [0,1,2].forEach(i=>{
       const th=document.getElementById('thumb-'+i),ph=document.getElementById('slot-ph-'+i);
       const ok=document.getElementById('slot-ok-'+i),sl=document.getElementById('slot-'+i);
@@ -2487,13 +2190,21 @@ Return ONLY the JSON object, no other text.`;
     checkReady();
   };
 
+  // ── EXPORT ────────────────────────────────────────
+  window.simShare=function(){const b=document.querySelector('[onclick="simShare()"]');if(b){const o=b.textContent;b.textContent='✓ Link copiado!';setTimeout(()=>b.textContent=o,2500);}};
+  window.exportSim=function(){
+    const c=document.getElementById('main-canvas');
+    if(!c)return;
+    const a=document.createElement('a');a.href=c.toDataURL('image/jpeg',.95);a.download='simulacao-mama.jpg';a.click();
+  };
+
   // ── CATALOG ───────────────────────────────────────
   window.openCat=function(){const m=document.getElementById('cat-modal');if(m){m.style.removeProperty('display');m.style.display='flex';}renderCatItems(IMPL_DB);};
   window.closeCat=function(){const m=document.getElementById('cat-modal');if(m)m.style.display='none';};
   window.filterCatItems=function(q){
     const query=(q||document.querySelector('#cat-modal input')?.value||'').toLowerCase();
     const brand=document.getElementById('cat-brand')?.value||'';
-    renderCatItems(IMPL_DB.filter(i=>(!query||i.name.toLowerCase().includes(query)||i.code.toLowerCase().includes(query))&&(!brand||i.brand===brand)));
+    renderCatItems(IMPL_DB.filter(i=>(!query||i.name.toLowerCase().includes(query))&&(!brand||i.brand===brand)));
   };
   function renderCatItems(items){
     const list=document.getElementById('cat-list'),cnt=document.getElementById('cat-cnt');
@@ -2518,19 +2229,7 @@ Return ONLY the JSON object, no other text.`;
     P.volume=vol;P.diam=diam;P.perfil=perf;P.formato=fmt;
     document.getElementById('sv').value=vol;document.getElementById('dv').textContent=vol+' cc';
     document.getElementById('sd').value=diam;document.getElementById('dd').textContent=diam.toString().replace('.',',')+' cm';
-    refreshStyles();refreshView();closeCat();
-  };
-
-  // ── EXPORT / SHARE ────────────────────────────────
-  window.simShare=function(){const b=document.querySelector('[onclick="simShare()"]');if(b){const o=b.textContent;b.textContent='✓ Link copiado!';setTimeout(()=>b.textContent=o,2500);}};
-  window.exportSim=function(){
-    if(currentMode==='3D'&&renderer){
-      renderer.render(scene,camera);
-      const a=document.createElement('a');a.href=renderer.domElement.toDataURL('image/jpeg',.92);a.download='sim-3d.jpg';a.click();
-    } else {
-      const img=document.getElementById('photo-base');
-      if(img){const a=document.createElement('a');a.href=img.src;a.download='sim-foto.jpg';a.click();}
-    }
+    refreshStyles();renderCurrentView();closeCat();
   };
 
   // ── INIT ──────────────────────────────────────────
