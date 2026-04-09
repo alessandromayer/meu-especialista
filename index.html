@@ -1431,10 +1431,11 @@ PageInit.crm = (opts) => {
 // =============================================
 // =============================================
 // =============================================
-// 3. SIMULATOR 3D — Mama (Three.js + MediaPipe)
+// =============================================
+// 3. SIMULATOR 3D — Mama com Claude Vision AI
 // =============================================
 PageRenderers.simulator = () => `
-<div class="page" style="padding:0;height:calc(100vh - 56px);display:flex;flex-direction:column;overflow:hidden" id="sim-root">
+<div style="padding:0;height:calc(100vh - 56px);display:flex;flex-direction:column;overflow:hidden" id="sim-root">
 
   <!-- TOP BAR -->
   <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0">
@@ -1446,9 +1447,9 @@ PageRenderers.simulator = () => `
         ${AppData.patients.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
       </select>
     </div>
-    <div style="display:flex;gap:6px;align-items:center" id="sim-top-actions">
-      <div style="display:flex;gap:2px;background:var(--s2);border-radius:8px;padding:3px" id="vmode-wrap">
-        ${['3D','Foto','VR'].map((v,i)=>`<button onclick="setVMode('${v}')" id="vmode-${v}" class="btn btn-ghost btn-sm" style="font-size:10px;padding:4px 10px;${i===0?'background:var(--s3);color:var(--text)':''}">${v}</button>`).join('')}
+    <div style="display:flex;gap:6px;align-items:center;display:none" id="sim-top-actions">
+      <div style="display:flex;gap:2px;background:var(--s2);border-radius:8px;padding:3px">
+        ${['3D','Foto'].map((v,i)=>`<button onclick="setVMode('${v}')" id="vmode-${v}" class="btn btn-ghost btn-sm" style="font-size:10px;padding:4px 10px;${i===0?'background:var(--s3);color:var(--text)':''}">${v}</button>`).join('')}
       </div>
       <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="simShare()">🔗 Partilhar</button>
       <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="exportSim()">⬇ Export</button>
@@ -1457,72 +1458,67 @@ PageRenderers.simulator = () => `
   </div>
 
   <!-- STEP 1: UPLOAD -->
-  <div id="step-upload" style="flex:1;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:24px">
-    <div style="width:100%;max-width:640px;display:flex;flex-direction:column;align-items:center;gap:20px">
-
+  <div id="step-upload" style="flex:1;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:24px 16px">
+    <div style="width:100%;max-width:620px;display:flex;flex-direction:column;align-items:center;gap:20px">
       <div style="text-align:center">
-        <div style="font-size:22px;font-weight:700;margin-bottom:8px">Criar simulação 3D</div>
-        <div style="font-size:13px;color:var(--muted)">Carregue 3 fotografias para gerar o modelo 3D da paciente</div>
+        <div style="font-size:22px;font-weight:700;margin-bottom:8px">Simulação 3D com IA</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.7">A IA Claude analisa as fotografias da paciente e detecta a anatomia com precisão para gerar a simulação correcta</div>
       </div>
 
-      <!-- UPLOAD SLOTS -->
+      <!-- SLOTS -->
       <div style="display:flex;gap:14px;width:100%;justify-content:center">
-        ${[['0','Frontal','De frente, braços ao lado do corpo'],
-           ['1','Lateral Direita','Perfil direito, braço relaxado'],
-           ['2','Lateral Esquerda','Perfil esquerdo, braço relaxado']].map(([idx,label,desc])=>`
-        <div style="flex:1;max-width:180px;display:flex;flex-direction:column;gap:8px">
-          <div id="slot-${idx}"
-               onclick="triggerUpload(${idx})"
-               ondragover="dragOver(event,${idx})"
-               ondragleave="dragLeave(event,${idx})"
-               ondrop="dropFile(event,${idx})"
+        ${[['0','Frontal','De frente'],['1','Lateral D','Perfil direito'],['2','Lateral E','Perfil esquerdo']].map(([idx,label,desc])=>`
+        <div style="flex:1;max-width:175px;display:flex;flex-direction:column;gap:8px">
+          <div id="slot-${idx}" onclick="triggerUpload(${idx})" ondragover="dragOver(event,${idx})" ondragleave="dragLeave(${idx})" ondrop="dropFile(event,${idx})"
                style="width:100%;aspect-ratio:3/4;border:2px dashed var(--border);border-radius:12px;background:var(--s2);position:relative;overflow:hidden;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
             <img id="thumb-${idx}" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover"/>
-            <div id="slot-ph-${idx}" style="display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none">
-              <div style="font-size:28px;opacity:.4">📷</div>
-              <div style="font-size:11px;font-weight:600;color:var(--text)">${label}</div>
-              <div style="font-size:9px;color:var(--muted);text-align:center;padding:0 8px">${desc}</div>
+            <div id="slot-ph-${idx}" style="display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:none">
+              <span style="font-size:30px;opacity:.35">📷</span>
+              <span style="font-size:12px;font-weight:600;color:var(--text)">${label}</span>
+              <span style="font-size:9px;color:var(--muted);text-align:center;padding:0 6px">${desc}</span>
             </div>
-            <div id="slot-ok-${idx}" style="display:none;position:absolute;top:8px;right:8px;width:22px;height:22px;background:var(--pron);border-radius:50%;align-items:center;justify-content:center;font-size:11px;color:white;font-weight:700">✓</div>
+            <div id="slot-ok-${idx}" style="display:none;position:absolute;top:8px;right:8px;width:22px;height:22px;background:var(--pron);border-radius:50%;align-items:center;justify-content:center;font-size:11px;color:white">✓</div>
           </div>
           <input type="file" accept="image/*" id="finput-${idx}" style="display:none" onchange="fileChosen(event,${idx})">
         </div>`).join('')}
       </div>
 
-      <!-- GUIDE -->
-      <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:14px 18px;width:100%;font-size:11px;line-height:1.9;color:var(--muted)">
-        <div style="font-weight:600;color:var(--text);margin-bottom:6px">📋 Instruções para melhores resultados:</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
-          <div>✅ Fundo neutro (branco/creme)</div>
-          <div>✅ Braços levemente afastados</div>
-          <div>✅ Boa iluminação uniforme</div>
-          <div>✅ Do pescoço até à cintura</div>
-          <div>❌ Sem sombras fortes</div>
-          <div>❌ Sem roupa apertada</div>
+      <!-- AI BADGE -->
+      <div style="background:linear-gradient(135deg,rgba(167,139,250,.1),rgba(52,211,153,.08));border:1px solid rgba(167,139,250,.25);border-radius:12px;padding:13px 18px;width:100%;display:flex;gap:12px;align-items:flex-start">
+        <span style="font-size:20px;flex-shrink:0">🤖</span>
+        <div>
+          <div style="font-size:12px;font-weight:600;margin-bottom:4px;color:var(--text)">Claude Vision analisa automaticamente:</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.8;display:grid;grid-template-columns:1fr 1fr;gap:2px">
+            <span>• Posição do tórax</span><span>• Distância inter-mamária</span>
+            <span>• Largura dos ombros</span><span>• Posição das mamas</span>
+            <span>• Tom de pele</span><span>• Proporções corporais</span>
+          </div>
         </div>
       </div>
 
       <div style="display:flex;gap:12px;align-items:center">
         <button id="btn-create" onclick="createModel()" disabled
-          style="background:var(--sim);color:white;border:none;border-radius:10px;padding:13px 36px;font-size:14px;font-weight:700;cursor:not-allowed;opacity:.35;transition:all .3s">
-          ✨ Criar modelo 3D
+          style="background:var(--sim);color:white;border:none;border-radius:10px;padding:13px 36px;font-size:14px;font-weight:700;opacity:.35;cursor:not-allowed;transition:all .3s">
+          ✨ Analisar com IA e criar 3D
         </button>
         <span style="font-size:11px;color:var(--muted)">ou <span onclick="loadDemo()" style="color:var(--sim);cursor:pointer;text-decoration:underline">usar demo</span></span>
       </div>
     </div>
   </div>
 
-  <!-- STEP 2: PROCESSING -->
+  <!-- STEP 2: PROCESSING (AI) -->
   <div id="step-proc" style="display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:20px">
-    <div id="proc-anim" style="width:80px;height:80px;position:relative">
-      <svg viewBox="0 0 80 80" width="80" height="80">
-        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--border)" stroke-width="4"/>
-        <circle cx="40" cy="40" r="34" fill="none" stroke="var(--sim)" stroke-width="4" stroke-dasharray="213" stroke-dashoffset="213" id="proc-circle" style="transform-origin:center;transform:rotate(-90deg);transition:stroke-dashoffset .5s"/>
+    <div style="position:relative;width:90px;height:90px">
+      <svg viewBox="0 0 90 90" width="90" height="90" style="transform:rotate(-90deg)">
+        <circle cx="45" cy="45" r="38" fill="none" stroke="var(--border)" stroke-width="5"/>
+        <circle cx="45" cy="45" r="38" fill="none" stroke="var(--sim)" stroke-width="5"
+                stroke-dasharray="239" id="proc-ring" stroke-dashoffset="239" style="transition:stroke-dashoffset .6s ease"/>
       </svg>
-      <div id="proc-pct" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;font-family:var(--mono)">0%</div>
+      <div id="proc-pct" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;font-family:var(--mono)">0%</div>
     </div>
-    <div style="font-size:16px;font-weight:600" id="proc-title">A criar modelo 3D...</div>
-    <div style="font-size:11px;color:var(--muted);font-family:var(--mono)" id="proc-step">Iniciando...</div>
+    <div style="font-size:16px;font-weight:600" id="proc-title">Claude Vision a analisar...</div>
+    <div style="font-size:11px;color:var(--muted);font-family:var(--mono);min-height:20px" id="proc-step">A carregar imagens...</div>
+    <div id="ai-log" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;width:400px;max-height:140px;overflow-y:auto;font-size:10px;font-family:var(--mono);color:var(--muted);line-height:1.9"></div>
     <div style="display:flex;gap:8px" id="proc-thumbs"></div>
   </div>
 
@@ -1530,62 +1526,90 @@ PageRenderers.simulator = () => `
   <div id="step-viewer" style="display:none;flex:1;overflow:hidden">
     <div style="display:flex;height:100%">
 
-      <!-- LEFT MINI TOOLBAR -->
+      <!-- LEFT TOOLBAR -->
       <div style="width:42px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:5px;flex-shrink:0">
         ${[['✏️','Anotar'],['↩','Desfazer'],['📐','Medidas'],['💾','Guardar'],['🔍','Zoom']].map(([ic,tt])=>`
-        <div title="${tt}" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:7px;cursor:pointer;font-size:14px" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''">${ic}</div>`).join('')}
+        <div title="${tt}" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:7px;cursor:pointer;font-size:14px;transition:background .15s" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''">${ic}</div>`).join('')}
         <div style="flex:1"></div>
-        <div style="font-size:8px;color:var(--muted);writing-mode:vertical-rl;opacity:.5;padding:8px 0;font-family:var(--mono)">ARRASTAR=RODAR</div>
+        <div style="font-size:7px;color:var(--muted);writing-mode:vertical-rl;opacity:.4;padding:8px 0;font-family:var(--mono)">DRAG=ROTATE</div>
       </div>
 
-      <!-- CENTER VIEWPORT -->
-      <div id="sim-viewport" style="flex:1;position:relative;background:#0a0a12;overflow:hidden">
+      <!-- VIEWPORT -->
+      <div id="sim-viewport" style="flex:1;position:relative;background:#08080f;overflow:hidden">
 
-        <!-- THREE.JS CANVAS (3D mode) -->
-        <canvas id="three-canvas" style="display:block;width:100%;height:100%"></canvas>
+        <!-- THREE.JS canvas -->
+        <canvas id="three-canvas" style="width:100%;height:100%;display:block;cursor:grab"></canvas>
 
-        <!-- PHOTO MODE overlay -->
-        <div id="photo-mode" style="display:none;position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#111">
-          <div style="position:relative;display:inline-flex">
-            <img id="photo-base" style="max-height:calc(100vh - 160px);max-width:100%;object-fit:contain"/>
-            <svg id="photo-overlay" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible" viewBox="0 0 400 600" preserveAspectRatio="xMidYMid meet">
+        <!-- FOTO mode -->
+        <div id="photo-mode" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:#0d0d14">
+          <div style="position:relative;display:inline-flex;align-items:flex-start" id="photo-sim-wrap">
+            <img id="photo-base" style="max-height:calc(100vh - 160px);max-width:100%;object-fit:contain;display:block" draggable="false"/>
+            <svg id="photo-overlay" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible"
+                 viewBox="0 0 400 600" preserveAspectRatio="xMidYMid meet">
               <defs>
-                <radialGradient id="og-L" cx="36%" cy="30%" r="65%"><stop offset="0%" stop-color="rgba(235,185,145,.6)"/><stop offset="100%" stop-color="rgba(180,115,75,.1)"/></radialGradient>
-                <radialGradient id="og-R" cx="64%" cy="30%" r="65%"><stop offset="0%" stop-color="rgba(235,185,145,.6)"/><stop offset="100%" stop-color="rgba(180,115,75,.1)"/></radialGradient>
-                <radialGradient id="hl-L" cx="33%" cy="25%" r="42%"><stop offset="0%" stop-color="rgba(255,225,195,.45)"/><stop offset="100%" stop-color="rgba(255,255,255,0)"/></radialGradient>
-                <radialGradient id="hl-R" cx="67%" cy="25%" r="42%"><stop offset="0%" stop-color="rgba(255,225,195,.45)"/><stop offset="100%" stop-color="rgba(255,255,255,0)"/></radialGradient>
-                <filter id="edgeBlur"><feGaussianBlur stdDeviation="5"/></filter>
+                <radialGradient id="ogL" cx="35%" cy="28%" r="66%">
+                  <stop offset="0%" stop-color="rgba(235,185,145,.62)"/>
+                  <stop offset="55%" stop-color="rgba(210,160,118,.45)"/>
+                  <stop offset="100%" stop-color="rgba(175,110,70,.08)"/>
+                </radialGradient>
+                <radialGradient id="ogR" cx="65%" cy="28%" r="66%">
+                  <stop offset="0%" stop-color="rgba(235,185,145,.62)"/>
+                  <stop offset="55%" stop-color="rgba(210,160,118,.45)"/>
+                  <stop offset="100%" stop-color="rgba(175,110,70,.08)"/>
+                </radialGradient>
+                <radialGradient id="hlL" cx="32%" cy="22%" r="44%">
+                  <stop offset="0%" stop-color="rgba(255,225,195,.48)"/>
+                  <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+                </radialGradient>
+                <radialGradient id="hlR" cx="68%" cy="22%" r="44%">
+                  <stop offset="0%" stop-color="rgba(255,225,195,.48)"/>
+                  <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+                </radialGradient>
+                <filter id="eb"><feGaussianBlur stdDeviation="5.5"/></filter>
+                <filter id="sb"><feGaussianBlur stdDeviation="2.5"/></filter>
               </defs>
-              <path id="po-edgeL" d="" fill="rgba(210,165,120,.06)" filter="url(#edgeBlur)"/>
-              <path id="po-edgeR" d="" fill="rgba(210,165,120,.06)" filter="url(#edgeBlur)"/>
-              <path id="po-L" d="" fill="url(#og-L)"/>
-              <path id="po-R" d="" fill="url(#og-R)"/>
-              <path id="po-hL" d="" fill="url(#hl-L)"/>
-              <path id="po-hR" d="" fill="url(#hl-R)"/>
+              <!-- Shadow -->
+              <ellipse id="shL" cx="148" cy="300" rx="40" ry="10" fill="rgba(60,30,10,.2)" filter="url(#sb)"/>
+              <ellipse id="shR" cx="252" cy="300" rx="40" ry="10" fill="rgba(60,30,10,.2)" filter="url(#sb)"/>
+              <!-- Edge blur -->
+              <path id="ebL" d="" fill="rgba(210,165,118,.07)" filter="url(#eb)"/>
+              <path id="ebR" d="" fill="rgba(210,165,118,.07)" filter="url(#eb)"/>
+              <!-- Main -->
+              <path id="poL" d="" fill="url(#ogL)"/>
+              <path id="poR" d="" fill="url(#ogR)"/>
+              <!-- Highlights -->
+              <path id="hlpL" d="" fill="url(#hlL)"/>
+              <path id="hlpR" d="" fill="url(#hlR)"/>
+              <!-- AI landmark dots (debug, hidden by default) -->
+              <circle id="ai-dot-L" cx="148" cy="270" r="3" fill="rgba(167,139,250,.0)"/>
+              <circle id="ai-dot-R" cx="252" cy="270" r="3" fill="rgba(167,139,250,.0)"/>
             </svg>
             <!-- Position handle -->
-            <div id="pos-handle" style="position:absolute;top:6px;left:50%;transform:translateX(-50%);background:rgba(167,139,250,.8);color:white;font-size:9px;padding:3px 10px;border-radius:12px;cursor:move;font-family:var(--mono);z-index:10" onmousedown="handleDragStart(event)">⠿ Ajustar posição</div>
+            <div id="pos-handle" style="position:absolute;top:6px;left:50%;transform:translateX(-50%);background:rgba(167,139,250,.85);color:white;font-size:9px;padding:3px 11px;border-radius:12px;cursor:move;font-family:var(--mono);z-index:10;user-select:none;white-space:nowrap" onmousedown="handleDragStart(event)">⠿ Ajustar posição</div>
+            <!-- AI landmark badge -->
+            <div id="ai-badge" style="position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.3);color:var(--pron);font-size:9px;padding:3px 10px;border-radius:8px;font-family:var(--mono);white-space:nowrap">🤖 Posição detectada por IA</div>
           </div>
         </div>
 
-        <!-- BEFORE/AFTER bar -->
-        <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:1px;background:rgba(0,0,0,.5);border-radius:10px;padding:3px">
-          <button id="ba-b" onclick="setBA(false)" style="padding:7px 20px;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.12);color:rgba(255,255,255,.7)">Antes</button>
-          <button id="ba-a" onclick="setBA(true)"  style="padding:7px 20px;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;background:rgba(167,139,250,.9);color:white">Depois</button>
+        <!-- BEFORE/AFTER -->
+        <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:1px;background:rgba(0,0,0,.55);border-radius:10px;padding:3px;z-index:5">
+          <button id="ba-b" onclick="setBA(false)" style="padding:7px 22px;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.1);color:rgba(255,255,255,.6)">Antes</button>
+          <button id="ba-a" onclick="setBA(true)"  style="padding:7px 22px;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;background:rgba(167,139,250,.9);color:white">Depois</button>
         </div>
 
-        <!-- View thumbs (photo mode only) -->
-        <div id="view-thumbs" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px"></div>
+        <!-- View thumbs (foto mode) -->
+        <div id="view-thumbs" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;z-index:5"></div>
 
-        <!-- Zoom controls -->
-        <div style="position:absolute;bottom:14px;right:14px;display:flex;flex-direction:column;gap:4px">
-          <button onclick="doZoom(1.15)"  style="width:28px;height:28px;background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;cursor:pointer">+</button>
-          <button onclick="doZoom(0.87)"  style="width:28px;height:28px;background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;cursor:pointer">−</button>
+        <!-- Zoom -->
+        <div style="position:absolute;bottom:14px;right:14px;display:flex;flex-direction:column;gap:4px;z-index:5">
+          <button onclick="doZoom(1.15)" style="width:28px;height:28px;background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;cursor:pointer">+</button>
+          <button onclick="doZoom(.87)"  style="width:28px;height:28px;background:rgba(0,0,0,.6);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;cursor:pointer">−</button>
         </div>
 
         <!-- Info badge -->
-        <div id="info-badge" style="position:absolute;top:12px;right:12px;background:rgba(10,10,18,.85);border:1px solid rgba(167,139,250,.3);color:var(--sim);font-size:9px;font-family:var(--mono);padding:8px 12px;border-radius:10px;line-height:2">
-          <div id="ib-vol">250 cc</div><div id="ib-diam">Ø 11,5 cm</div><div id="ib-perf">Perfil Moderado</div><div id="ib-fmt">⬤ Redondo</div>
+        <div style="position:absolute;top:12px;right:12px;background:rgba(8,8,15,.88);border:1px solid rgba(167,139,250,.3);color:var(--sim);font-size:9px;font-family:var(--mono);padding:8px 12px;border-radius:10px;line-height:2;z-index:5">
+          <div id="ib-vol">250 cc</div><div id="ib-diam">Ø 11,5 cm</div>
+          <div id="ib-perf">Perfil Moderado</div><div id="ib-fmt">⬤ Redondo</div>
         </div>
       </div>
 
@@ -1596,7 +1620,7 @@ PageRenderers.simulator = () => `
           <button onclick="setTab('tools')" id="tab-tools" style="flex:1;padding:10px;font-size:11px;color:var(--muted);border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent">Ferramentas</button>
         </div>
 
-        <div id="panel-proc" style="flex:1;overflow-y:auto">
+        <div id="panel-proc" style="flex:1;overflow-y:auto;display:flex;flex-direction:column">
 
           <!-- AUMENTO PRIMÁRIO -->
           <div style="border-bottom:1px solid var(--border)">
@@ -1606,11 +1630,10 @@ PageRenderers.simulator = () => `
             </div>
             <div id="aug-bd" style="padding:13px 12px;display:flex;flex-direction:column;gap:11px">
 
-              <!-- FORMAT ROW -->
               <div style="display:flex;gap:5px">
                 ${[['round','⬤'],['oval','⬭'],['tear','▽']].map(([k,ic])=>`
                 <div id="fmt-${k}" onclick="sp('formato','${k}')" style="flex:1;height:34px;border:1.5px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all .15s">${ic}</div>`).join('')}
-                <button onclick="openCat()" style="flex:1;height:34px;border:1.5px solid var(--border);border-radius:8px;font-size:9px;font-weight:700;color:var(--muted);background:transparent;cursor:pointer;letter-spacing:.3px">📋 Catálogo</button>
+                <button onclick="openCat()" style="flex:1;height:34px;border:1.5px solid var(--border);border-radius:8px;font-size:9px;font-weight:700;color:var(--muted);background:transparent;cursor:pointer">📋 Catálogo</button>
               </div>
 
               <!-- VOLUME -->
@@ -1619,8 +1642,8 @@ PageRenderers.simulator = () => `
                   <span style="font-size:11px;color:var(--muted)">Volume</span>
                   <div style="display:flex;align-items:center;gap:5px">
                     <button onclick="ap('volume',-25)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;line-height:1">−</button>
-                    <span id="dv" style="font-size:13px;font-weight:700;min-width:64px;text-align:center;font-family:var(--mono)">250 cc</span>
-                    <button onclick="ap('volume', 25)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;line-height:1">+</button>
+                    <span id="dv" style="font-size:13px;font-weight:700;min-width:62px;text-align:center;font-family:var(--mono)">250 cc</span>
+                    <button onclick="ap('volume',25)"  style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;line-height:1">+</button>
                   </div>
                 </div>
                 <input type="range" min="100" max="800" step="25" value="250" style="width:100%;accent-color:var(--sim)" id="sv" oninput="sp2('volume',this.value)">
@@ -1632,8 +1655,8 @@ PageRenderers.simulator = () => `
                   <span style="font-size:11px;color:var(--muted)">Diâmetro</span>
                   <div style="display:flex;align-items:center;gap:5px">
                     <button onclick="ap('diam',-0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;line-height:1">−</button>
-                    <span id="dd" style="font-size:13px;font-weight:700;min-width:64px;text-align:center;font-family:var(--mono)">11,5 cm</span>
-                    <button onclick="ap('diam', 0.5)" style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;line-height:1">+</button>
+                    <span id="dd" style="font-size:13px;font-weight:700;min-width:62px;text-align:center;font-family:var(--mono)">11,5 cm</span>
+                    <button onclick="ap('diam',0.5)"  style="width:22px;height:22px;border:1px solid var(--border);border-radius:5px;background:var(--s2);color:var(--text);cursor:pointer;line-height:1">+</button>
                   </div>
                 </div>
                 <input type="range" min="8" max="16" step="0.5" value="11.5" style="width:100%;accent-color:var(--sim)" id="sd" oninput="sp2('diam',this.value)">
@@ -1676,7 +1699,6 @@ PageRenderers.simulator = () => `
             </div>
           </div>
 
-          <!-- COLLAPSED SECTIONS -->
           ${[['masto','Mastopexia'],['redu','Redução'],['troca','Troca de prótese'],['lipo','Lipofilling']].map(([k,lb])=>`
           <div style="border-bottom:1px solid var(--border)">
             <div onclick="sec('${k}')" style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer">
@@ -1685,6 +1707,12 @@ PageRenderers.simulator = () => `
             </div>
             <div id="${k}-bd" style="display:none;padding:12px 14px;font-size:11px;color:var(--muted)">Em breve</div>
           </div>`).join('')}
+
+          <!-- AI ANALYSIS CARD -->
+          <div style="margin:12px;background:var(--s2);border:1px solid rgba(167,139,250,.2);border-radius:10px;padding:12px">
+            <div style="font-size:10px;font-weight:600;color:var(--sim);margin-bottom:8px;display:flex;align-items:center;gap:5px">🤖 Análise IA</div>
+            <div id="ai-results" style="font-size:10px;color:var(--muted);line-height:1.8;font-family:var(--mono)">—</div>
+          </div>
         </div>
 
         <div id="panel-tools" style="display:none;padding:14px;font-size:11px;color:var(--muted)">Ferramentas em breve</div>
@@ -1712,7 +1740,7 @@ PageRenderers.simulator = () => `
   </div>
 </div>`;
 
-// ─── CATALOG DATA ─────────────────────────────────
+// ─── CATALOG ──────────────────────────────────────
 const IMPL_DB=[
   {brand:'Mentor',name:'Mentor Smooth Round Moderate',code:'350-1001',vol:250,diam:11.5,proj:3.5,perfil:'mod',formato:'round'},
   {brand:'Mentor',name:'Mentor Smooth Round Moderate Plus',code:'350-1007',vol:300,diam:12.0,proj:3.8,perfil:'mod',formato:'round'},
@@ -1731,30 +1759,30 @@ const IMPL_DB=[
 
 PageInit.simulator = () => {
   // ── STATE ──────────────────────────────────────────
-  let photos=[null,null,null];
+  let photos=[null,null,null]; // base64 strings
+  let aiData=null; // JSON from Claude Vision
   let P={volume:250,diam:11.5,perfil:'mod',formato:'round',metodo:'sub',simetrico:true};
   let showAfter=true, currentMode='3D', currentPhotoIdx=0;
-  let overlayPos={cx:50,cy:42}; let dragState=null;
-  // Three.js refs
-  let renderer,scene,camera,breastGroup,animFrameId;
-  let isDragging=false, lastMouse={x:0,y:0}, rotX=0,rotY=0;
+  let overlayPos={cx:50,cy:42}; // % of image
+  let isDragging=false,lastMouse={x:0,y:0},rotX=0,rotY=0;
+  let renderer,scene,camera,breastGroup,animId;
 
   // ── UPLOAD ─────────────────────────────────────────
-  window.triggerUpload = i => document.getElementById('finput-'+i).click();
-  window.dragOver  = (e,i)=>{ e.preventDefault(); document.getElementById('slot-'+i).style.borderColor='var(--sim)'; };
-  window.dragLeave = (e,i)=>{ document.getElementById('slot-'+i).style.borderColor='var(--border)'; };
-  window.dropFile  = (e,i)=>{ e.preventDefault(); const f=e.dataTransfer.files[0]; if(f&&f.type.startsWith('image/')) readFile(f,i); window.dragLeave(e,i); };
-  window.fileChosen= (e,i)=>{ const f=e.target.files[0]; if(f) readFile(f,i); };
+  window.triggerUpload=i=>document.getElementById('finput-'+i).click();
+  window.dragOver=(e,i)=>{e.preventDefault();document.getElementById('slot-'+i).style.borderColor='var(--sim)';};
+  window.dragLeave=i=>{document.getElementById('slot-'+i).style.borderColor='var(--border)';};
+  window.dropFile=(e,i)=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))readFile(f,i);window.dragLeave(i);};
+  window.fileChosen=(e,i)=>{const f=e.target.files[0];if(f)readFile(f,i);};
 
-  function readFile(file,i){
+  function readFile(f,i){
     const r=new FileReader();
     r.onload=e=>setPhoto(i,e.target.result);
-    r.readAsDataURL(file);
+    r.readAsDataURL(f);
   }
   function setPhoto(i,src){
     photos[i]=src;
-    const th=document.getElementById('thumb-'+i), ph=document.getElementById('slot-ph-'+i);
-    const ok=document.getElementById('slot-ok-'+i), sl=document.getElementById('slot-'+i);
+    const th=document.getElementById('thumb-'+i),ph=document.getElementById('slot-ph-'+i);
+    const ok=document.getElementById('slot-ok-'+i),sl=document.getElementById('slot-'+i);
     if(th){th.src=src;th.style.display='block';}
     if(ph)ph.style.display='none';
     if(ok){ok.style.removeProperty('display');ok.style.display='flex';}
@@ -1766,244 +1794,346 @@ PageInit.simulator = () => {
     const btn=document.getElementById('btn-create');
     if(btn){btn.disabled=!ok;btn.style.opacity=ok?'1':'.35';btn.style.cursor=ok?'pointer':'not-allowed';}
   }
-
   window.loadDemo=function(){
-    // Create demo placeholder images
-    const colours=['#c8a882','#b89070','#c09878'];
-    [0,1,2].forEach((i)=>{
-      const c=document.createElement('canvas'); c.width=300; c.height=450;
+    // Draw realistic demo body canvas
+    function makeDemo(angle){
+      const c=document.createElement('canvas');c.width=320;c.height=500;
       const ctx=c.getContext('2d');
-      const g=ctx.createLinearGradient(0,0,0,450);
-      g.addColorStop(0,'#d4b090'); g.addColorStop(1,'#a07850');
-      ctx.fillStyle=g; ctx.fillRect(0,0,300,450);
-      // Simple torso silhouette
-      ctx.fillStyle='rgba(200,155,105,.9)';
-      ctx.beginPath(); ctx.ellipse(150,230,90,160,0,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='rgba(185,140,95,.7)';
-      ctx.beginPath(); ctx.ellipse(150,100,28,35,0,0,Math.PI*2); ctx.fill();
-      setPhoto(i,c.toDataURL('image/jpeg',.85));
-    });
+      // Background
+      const bg=ctx.createLinearGradient(0,0,0,500);bg.addColorStop(0,'#e8e0d8');bg.addColorStop(1,'#d5cdc5');
+      ctx.fillStyle=bg;ctx.fillRect(0,0,320,500);
+      // Torso
+      const sg=ctx.createRadialGradient(160,250,20,160,250,180);
+      sg.addColorStop(0,'#d4906a');sg.addColorStop(.6,'#c07850');sg.addColorStop(1,'#a56040');
+      ctx.fillStyle=sg;
+      ctx.beginPath();
+      if(angle==='frontal'){
+        ctx.moveTo(95,80);ctx.quadraticCurveTo(60,130,55,220);ctx.quadraticCurveTo(52,310,80,420);
+        ctx.lineTo(240,420);ctx.quadraticCurveTo(268,310,265,220);ctx.quadraticCurveTo(260,130,225,80);
+        ctx.quadraticCurveTo(160,60,95,80);
+      } else {
+        ctx.moveTo(130,80);ctx.quadraticCurveTo(100,130,95,220);ctx.quadraticCurveTo(92,310,110,420);
+        ctx.lineTo(200,420);ctx.quadraticCurveTo(220,310,218,220);ctx.quadraticCurveTo(210,130,190,80);
+        ctx.quadraticCurveTo(160,60,130,80);
+      }
+      ctx.fill();
+      // Head
+      ctx.fillStyle='#c87850';ctx.beginPath();ctx.ellipse(160,45,28,38,0,0,Math.PI*2);ctx.fill();
+      // Neck
+      ctx.fillStyle='#c88060';ctx.fillRect(147,75,26,28);
+      return c.toDataURL('image/jpeg',.88);
+    }
+    [makeDemo('frontal'),makeDemo('lateral'),makeDemo('lateral')].forEach((s,i)=>setPhoto(i,s));
   };
 
+  // ── CLAUDE VISION ANALYSIS ─────────────────────────
+  async function analyzeWithClaude(base64Img){
+    // Extract base64 data (remove data:image/jpeg;base64, prefix)
+    const b64=base64Img.split(',')[1];
+    const mediaType=base64Img.split(';')[0].split(':')[1]||'image/jpeg';
+
+    const prompt=`You are a medical imaging AI specializing in breast augmentation surgery planning.
+Analyze this frontal photo of a patient's torso and return ONLY valid JSON with these measurements as percentages of image dimensions (0-100):
+
+{
+  "breast_left_center_x": <x% of image width where left breast center is>,
+  "breast_left_center_y": <y% of image height>,
+  "breast_right_center_x": <x% of image width where right breast center is>,
+  "breast_right_center_y": <y% of image height>,
+  "breast_radius_percent": <approximate breast radius as % of image width>,
+  "inter_breast_gap_percent": <gap between breasts as % of image width>,
+  "torso_width_percent": <torso width as % of image width at breast level>,
+  "breast_level_y_percent": <y% where breast midline is>,
+  "skin_tone": "<fair|medium|olive|dark>",
+  "estimated_cup_size": "<A|B|C|D>",
+  "notes": "<brief anatomical notes for surgeon>"
+}
+
+Analyze carefully. If you cannot detect breasts clearly, estimate based on typical anatomy.
+Return ONLY the JSON object, no other text.`;
+
+    const response=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:500,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'image',source:{type:'base64',media_type:mediaType,data:b64}},
+            {type:'text',text:prompt}
+          ]
+        }]
+      })
+    });
+    const data=await response.json();
+    if(data.error) throw new Error(data.error.message);
+    const text=data.content?.[0]?.text||'{}';
+    const clean=text.replace(/```json|```/g,'').trim();
+    return JSON.parse(clean);
+  }
+
+  // ── LOG HELPER ─────────────────────────────────────
+  function aiLog(msg){
+    const el=document.getElementById('ai-log');
+    if(el){el.innerHTML+=`<div>> ${msg}</div>`;el.scrollTop=el.scrollHeight;}
+  }
+  function setProgress(pct,title,step){
+    const ring=document.getElementById('proc-ring');
+    if(ring) ring.style.strokeDashoffset=239-(239*pct/100);
+    const pp=document.getElementById('proc-pct');if(pp)pp.textContent=pct+'%';
+    const pt=document.getElementById('proc-title');if(pt&&title)pt.textContent=title;
+    const ps=document.getElementById('proc-step');if(ps&&step)ps.textContent=step;
+  }
+
   // ── CREATE MODEL ──────────────────────────────────
-  window.createModel=function(){
+  window.createModel=async function(){
     document.getElementById('step-upload').style.display='none';
     const sp=document.getElementById('step-proc');
-    sp.style.removeProperty('display'); sp.style.display='flex';
-    // Show thumbnails
+    sp.style.removeProperty('display');sp.style.display='flex';
     const tp=document.getElementById('proc-thumbs');
-    if(tp) tp.innerHTML=photos.filter(Boolean).map(s=>`<img src="${s}" style="width:60px;height:85px;object-fit:cover;border-radius:8px;border:2px solid var(--border)">`).join('');
-    // Progress steps
-    const steps=[[8,'Analisando fotografias...'],[20,'Detectando pontos anatômicos...'],[38,'Estimando geometria corporal...'],[55,'Construindo malha 3D...'],[70,'Calibrando proporções...'],[85,'Aplicando iluminação...'],[95,'Optimizando modelo...'],[100,'Modelo 3D criado ✓']];
-    let i=0;
-    const iv=setInterval(()=>{
-      if(i>=steps.length){clearInterval(iv);setTimeout(enterViewer,600);return;}
-      const[pct,txt]=steps[i++];
-      const circ=document.getElementById('proc-circle');
-      if(circ) circ.style.strokeDashoffset=213-(213*pct/100);
-      const pp=document.getElementById('proc-pct'); if(pp) pp.textContent=pct+'%';
-      const ps=document.getElementById('proc-step'); if(ps) ps.textContent=txt;
-      const pt=document.getElementById('proc-title'); if(pt&&pct===100){pt.textContent='Modelo 3D pronto!';}
-    },600);
+    if(tp)tp.innerHTML=photos.filter(Boolean).map(s=>`<img src="${s}" style="width:60px;height:85px;object-fit:cover;border-radius:8px;border:2px solid var(--border)">`).join('');
+
+    setProgress(5,'Claude Vision a analisar...','A carregar fotografias...');
+    aiLog('Iniciando análise com Claude Vision...');
+
+    try {
+      // Use frontal photo (index 0) for analysis
+      const frontPhoto=photos[0]||photos[1]||photos[2];
+      if(!frontPhoto) throw new Error('Nenhuma foto disponível');
+
+      setProgress(15,'Enviando para Claude Vision...','A analisar anatomia...');
+      aiLog('Enviando foto frontal para análise...');
+
+      aiData=await analyzeWithClaude(frontPhoto);
+
+      setProgress(55,'IA detectou landmarks...','A calibrar modelo...');
+      aiLog('✓ Landmarks detectados pela IA');
+      aiLog('Posição mama esq: ('+aiData.breast_left_center_x?.toFixed(1)+'%, '+aiData.breast_left_center_y?.toFixed(1)+'%)');
+      aiLog('Posição mama dir: ('+aiData.breast_right_center_x?.toFixed(1)+'%, '+aiData.breast_right_center_y?.toFixed(1)+'%)');
+      aiLog('Tom de pele: '+aiData.skin_tone);
+      aiLog('Tamanho estimado: '+aiData.estimated_cup_size);
+
+      // Convert % to overlayPos format (cx = midpoint between breasts)
+      if(aiData.breast_left_center_x&&aiData.breast_right_center_x){
+        overlayPos.cx=(aiData.breast_left_center_x+aiData.breast_right_center_x)/2;
+        overlayPos.cy=(aiData.breast_left_center_y+aiData.breast_right_center_y)/2;
+      }
+
+      setProgress(75,'A construir modelo 3D...','Aplicando proporções detectadas...');
+      aiLog('A gerar modelo 3D com anatomia real...');
+      await new Promise(r=>setTimeout(r,800));
+
+      setProgress(90,'A renderizar...','Iluminação e texturas...');
+      aiLog('A aplicar renderização...');
+      await new Promise(r=>setTimeout(r,600));
+
+      setProgress(100,'Modelo pronto! ✓','');
+      aiLog('✓ Simulação pronta');
+
+      // Show notes
+      if(aiData.notes) aiLog('Notas: '+aiData.notes);
+
+    } catch(err){
+      aiLog('⚠ Erro IA: '+err.message);
+      aiLog('A usar posição padrão...');
+      setProgress(100,'Pronto (modo padrão)','');
+      // fallback to defaults
+      aiData={breast_left_center_x:40,breast_right_center_x:60,breast_left_center_y:42,breast_right_center_y:42,skin_tone:'medium',estimated_cup_size:'B',notes:'Posição estimada'};
+      overlayPos={cx:50,cy:42};
+    }
+
+    setTimeout(enterViewer,700);
   };
 
   // ── ENTER VIEWER ──────────────────────────────────
   function enterViewer(){
     document.getElementById('step-proc').style.display='none';
     const sv=document.getElementById('step-viewer');
-    sv.style.removeProperty('display'); sv.style.display='block';
-    document.getElementById('sim-top-actions').style.removeProperty('display');
-    initThreeJS();
+    sv.style.removeProperty('display');sv.style.display='block';
+
+    const ta=document.getElementById('sim-top-actions');
+    ta.style.removeProperty('display');ta.style.display='flex';
+
+    // Show AI results in side panel
+    if(aiData){
+      const ar=document.getElementById('ai-results');
+      if(ar) ar.innerHTML=`
+        Posição: (${overlayPos.cx.toFixed(1)}%, ${overlayPos.cy.toFixed(1)}%)<br>
+        Tom de pele: ${aiData.skin_tone||'—'}<br>
+        Tamanho base: ${aiData.estimated_cup_size||'—'}<br>
+        ${aiData.notes?'<br>'+aiData.notes:''}`;
+    }
+
+    // Update skin color based on AI detection
+    if(aiData?.skin_tone) applySkinTone(aiData.skin_tone);
+
+    if(!window.THREE) loadThreeJS(()=>{initThreeJS();buildBodyMesh();});
+    else {initThreeJS();buildBodyMesh();}
+
     buildPhotoThumbs();
     loadPhotoView(0);
     refreshStyles(); updateBadge();
     setVMode('3D');
   }
 
+  // ── SKIN TONE ─────────────────────────────────────
+  function applySkinTone(tone){
+    const tones={fair:{body:0xead5be,breast:0xe2c4a8},medium:{body:0xd4906a,breast:0xce8460},olive:{body:0xc07850,breast:0xb86e45},dark:{body:0x9a5a32,breast:0x8f5028}};
+    window._simSkinTone=tones[tone]||tones.medium;
+  }
+
   // ── THREE.JS ──────────────────────────────────────
+  function loadThreeJS(cb){
+    if(window.THREE){cb();return;}
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    s.onload=cb; document.head.appendChild(s);
+  }
+
   function initThreeJS(){
     const canvas=document.getElementById('three-canvas');
-    if(!canvas||!window.THREE) return;
-    const W=canvas.offsetWidth||800, H=canvas.offsetHeight||600;
+    if(!canvas||!window.THREE||renderer)return;
+    const W=canvas.offsetWidth||800,H=canvas.offsetHeight||600;
     renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
-    renderer.setSize(W,H); renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    renderer.setSize(W,H);renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
     renderer.shadowMap.enabled=true;
     renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure=1.2;
+    renderer.toneMappingExposure=1.25;
+    renderer.outputEncoding=THREE.sRGBEncoding;
 
-    scene=new THREE.Scene();
-    scene.background=new THREE.Color(0x0a0a12);
-    scene.fog=new THREE.Fog(0x0a0a12,8,20);
+    scene=new THREE.Scene();scene.background=new THREE.Color(0x08080f);
+    scene.fog=new THREE.FogExp2(0x08080f,.06);
 
-    camera=new THREE.PerspectiveCamera(45,W/H,.1,100);
-    camera.position.set(0,0.3,3.5);
-    camera.lookAt(0,0.3,0);
+    camera=new THREE.PerspectiveCamera(44,W/H,.1,100);
+    camera.position.set(0,.25,3.4);camera.lookAt(0,.25,0);
 
     // Lighting
-    const ambL=new THREE.AmbientLight(0xffeedd,.5); scene.add(ambL);
-    const keyL=new THREE.DirectionalLight(0xfff8f0,1.8);
-    keyL.position.set(2,4,3); keyL.castShadow=true; scene.add(keyL);
-    const fillL=new THREE.DirectionalLight(0xddeeff,.6);
-    fillL.position.set(-3,1,1); scene.add(fillL);
-    const rimL=new THREE.DirectionalLight(0xffeedd,.4);
-    rimL.position.set(0,-1,-3); scene.add(rimL);
+    scene.add(new THREE.AmbientLight(0xfff5e8,.55));
+    const kl=new THREE.DirectionalLight(0xfff8f0,2.0);kl.position.set(2.5,4,3);kl.castShadow=true;scene.add(kl);
+    const fl=new THREE.DirectionalLight(0xddeeff,.65);fl.position.set(-3,1,1.5);scene.add(fl);
+    const rl=new THREE.DirectionalLight(0xffeedd,.35);rl.position.set(0,-1,-3);scene.add(rl);
+    const pl=new THREE.PointLight(0xffddcc,.4,5);pl.position.set(0,1.5,1.5);scene.add(pl);
 
-    breastGroup=new THREE.Group();
-    scene.add(breastGroup);
-    buildBodyMesh();
-    animate();
+    breastGroup=new THREE.Group();scene.add(breastGroup);
+    (function animate(){animId=requestAnimationFrame(animate);if(renderer&&scene&&camera)renderer.render(scene,camera);})();
 
-    // Drag to rotate
-    canvas.addEventListener('mousedown', e=>{ isDragging=true; lastMouse={x:e.clientX,y:e.clientY}; canvas.style.cursor='grabbing'; });
-    window.addEventListener('mousemove', e=>{
+    // Drag
+    canvas.addEventListener('mousedown',e=>{isDragging=true;lastMouse={x:e.clientX,y:e.clientY};canvas.style.cursor='grabbing';});
+    window.addEventListener('mousemove',e=>{
       if(!isDragging)return;
-      const dx=e.clientX-lastMouse.x, dy=e.clientY-lastMouse.y;
-      rotY+=dx*.005; rotX+=dy*.003;
-      rotX=Math.max(-0.5,Math.min(0.5,rotX));
+      const dx=e.clientX-lastMouse.x,dy=e.clientY-lastMouse.y;
+      rotY+=dx*.005;rotX=Math.max(-.55,Math.min(.55,rotX+dy*.003));
       if(breastGroup){breastGroup.rotation.y=rotY;breastGroup.rotation.x=rotX;}
       lastMouse={x:e.clientX,y:e.clientY};
     });
-    window.addEventListener('mouseup',()=>{ isDragging=false; canvas.style.cursor='grab'; });
-    canvas.style.cursor='grab';
+    window.addEventListener('mouseup',()=>{isDragging=false;if(canvas)canvas.style.cursor='grab';});
+
+    window.addEventListener('resize',()=>{
+      if(!renderer||!camera||!canvas)return;
+      const W2=canvas.offsetWidth,H2=canvas.offsetHeight;
+      renderer.setSize(W2,H2);camera.aspect=W2/H2;camera.updateProjectionMatrix();
+    });
   }
 
   function buildBodyMesh(){
     if(!breastGroup||!window.THREE)return;
-    // Clear
-    while(breastGroup.children.length) breastGroup.remove(breastGroup.children[0]);
+    while(breastGroup.children.length)breastGroup.remove(breastGroup.children[0]);
 
-    const skinMat=new THREE.MeshStandardMaterial({
-      color:new THREE.Color(0xd4906a),
-      roughness:.7, metalness:.05,
-      envMapIntensity:.3,
-    });
+    const skin=window._simSkinTone||{body:0xd4906a,breast:0xce8460};
+    const skinMat=new THREE.MeshStandardMaterial({color:new THREE.Color(skin.body),roughness:.68,metalness:.04});
+    const breastMat=new THREE.MeshStandardMaterial({color:new THREE.Color(skin.breast),roughness:.62,metalness:.03});
 
-    // ── TORSO ──
-    const torsoGeo=new THREE.CylinderGeometry(.55,.45,1.8,32,8,false);
-    // Taper at waist
-    const torsoPos=torsoGeo.attributes.position;
-    for(let i=0;i<torsoPos.count;i++){
-      const y=torsoPos.getY(i);
-      const t=(y+.9)/1.8; // 0=bottom,1=top
-      const waistFactor=1-0.18*Math.sin(t*Math.PI); // narrow in middle
-      torsoPos.setX(i,torsoPos.getX(i)*waistFactor);
-      torsoPos.setZ(i,torsoPos.getZ(i)*waistFactor);
+    // TORSO
+    const tg=new THREE.CylinderGeometry(.52,.44,1.85,32,10);
+    const tp=tg.attributes.position;
+    for(let i=0;i<tp.count;i++){
+      const y=tp.getY(i);const t=(y+.925)/1.85;
+      const wf=1-Math.sin(t*Math.PI)*.2;
+      tp.setX(i,tp.getX(i)*wf);tp.setZ(i,tp.getZ(i)*wf);
     }
-    torsoPos.needsUpdate=true;
-    torsoGeo.computeVertexNormals();
-    const torso=new THREE.Mesh(torsoGeo,skinMat); torso.receiveShadow=true; torso.castShadow=true;
-    torso.position.y=-.2;
-    breastGroup.add(torso);
+    tp.needsUpdate=true;tg.computeVertexNormals();
+    const torso=new THREE.Mesh(tg,skinMat);torso.position.y=-.25;torso.castShadow=true;breastGroup.add(torso);
 
-    // ── NECK ──
-    const neckGeo=new THREE.CylinderGeometry(.12,.15,.3,16);
-    const neck=new THREE.Mesh(neckGeo,skinMat); neck.position.y=.77;
-    breastGroup.add(neck);
+    // NECK
+    const ng=new THREE.CylinderGeometry(.115,.14,.28,16);
+    const neck=new THREE.Mesh(ng,skinMat);neck.position.y=.75;breastGroup.add(neck);
 
-    // ── HEAD ──
-    const headGeo=new THREE.SphereGeometry(.22,24,18);
-    const head=new THREE.Mesh(headGeo,skinMat); head.position.y=1.05;
-    breastGroup.add(head);
+    // HEAD
+    const hg=new THREE.SphereGeometry(.21,24,18);
+    const head=new THREE.Mesh(hg,skinMat);head.position.y=1.03;breastGroup.add(head);
 
-    // ── SHOULDERS ──
-    [-1,1].forEach(side=>{
-      const sg=new THREE.SphereGeometry(.14,16,12);
-      const sm=new THREE.Mesh(sg,skinMat); sm.position.set(side*.62,.6,0);
-      breastGroup.add(sm);
+    // SHOULDERS
+    [-1,1].forEach(s=>{
+      const sg=new THREE.SphereGeometry(.13,16,12);
+      const sm=new THREE.Mesh(sg,skinMat);sm.position.set(s*.58,.58,0);breastGroup.add(sm);
+      const ag=new THREE.CylinderGeometry(.08,.085,.55,12);ag.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI/2));
+      const arm=new THREE.Mesh(ag,skinMat);arm.position.set(s*.85,.35,0);breastGroup.add(arm);
     });
 
-    // ── BREASTS ──
-    buildBreastMeshes(skinMat);
+    // BREASTS — shaped from volume + profile
+    if(showAfter){
+      buildBreasts(breastMat);
+    }
 
-    breastGroup.rotation.y=rotY;
-    breastGroup.rotation.x=rotX;
+    breastGroup.rotation.y=rotY;breastGroup.rotation.x=rotX;
   }
 
-  function buildBreastMeshes(mat){
+  function buildBreasts(mat){
     if(!window.THREE||!breastGroup)return;
-    // Remove old breast meshes
     breastGroup.children.filter(c=>c.userData.isBreast).forEach(c=>breastGroup.remove(c));
 
     const vol=P.volume;
-    const scale=0.75+(vol-100)/700*0.9;
-    const perfMult={low:.7,mod:1,high:1.3,xh:1.55}[P.perfil]||1;
-    const rx=.16*scale;
-    const rz=.14*scale*perfMult;
-    const ry=.15*scale;
-    const symF=P.simetrico?1:.93;
-    const positions=[-1,1];
+    const scale=.72+(vol-100)/700*.95;
+    const pm={low:.68,mod:1,high:1.32,xh:1.58}[P.perfil]||1;
+    const rx=.155*scale;
+    const rz=.135*scale*pm;
+    const ry=.148*scale;
+    const sf=P.simetrico?1:.92;
 
-    positions.forEach((side,si)=>{
-      const scaleX=si===0?1:symF;
-      let geo;
-      if(P.formato==='tear'){
-        // Teardrop: elongated bottom
-        geo=new THREE.SphereGeometry(1,24,20);
-        const pos=geo.attributes.position;
-        for(let i=0;i<pos.count;i++){
-          const y=pos.getY(i);
-          const dropFactor=y<0?1+Math.abs(y)*.3:1;
-          pos.setX(i,pos.getX(i)*rx*scaleX*dropFactor);
-          pos.setY(i,y*ry);
-          pos.setZ(i,pos.getZ(i)*rz);
-        }
-        pos.needsUpdate=true;
-      } else {
-        // Round/oval
-        geo=new THREE.SphereGeometry(1,24,20);
-        const pos=geo.attributes.position;
-        for(let i=0;i<pos.count;i++){
-          const rxx=P.formato==='oval'?rx*.85:rx;
-          pos.setX(i,pos.getX(i)*rxx*scaleX);
-          pos.setY(i,pos.getY(i)*ry);
-          pos.setZ(i,pos.getZ(i)*rz);
-        }
-        pos.needsUpdate=true;
+    [-1,1].forEach((side,si)=>{
+      const sxMult=si===0?1:sf;
+      const geo=new THREE.SphereGeometry(1,28,22);
+      const pos=geo.attributes.position;
+      for(let i=0;i<pos.count;i++){
+        const y=pos.getY(i);
+        const dropF=P.formato==='tear'?(y<0?1+Math.abs(y)*.35:1):1;
+        const ovalF=P.formato==='oval'?.85:1;
+        pos.setX(i,pos.getX(i)*rx*sxMult*ovalF*dropF);
+        pos.setY(i,y*ry);
+        pos.setZ(i,pos.getZ(i)*rz);
       }
-      geo.computeVertexNormals();
+      pos.needsUpdate=true;geo.computeVertexNormals();
 
-      // Breast material — skin tone
-      const bMat=new THREE.MeshStandardMaterial({
-        color:new THREE.Color(0xce8a66),
-        roughness:.65, metalness:.04,
-      });
-      const breast=new THREE.Mesh(geo,bMat);
-      breast.position.set(side*.2,.18,.35);
-      breast.castShadow=true;
-      breast.userData.isBreast=true;
+      const breast=new THREE.Mesh(geo,mat.clone());
+      // Position offset based on AI data if available
+      const aiShift=aiData?.inter_breast_gap_percent ? (aiData.inter_breast_gap_percent/100)*.18 : .19;
+      breast.position.set(side*aiShift,.16,.33);
+      breast.castShadow=true;breast.userData.isBreast=true;
       breastGroup.add(breast);
 
       // Nipple
-      const nipGeo=new THREE.SphereGeometry(.025,10,8);
-      const nipMat=new THREE.MeshStandardMaterial({color:new THREE.Color(0x9b5a3a),roughness:.8});
+      const nipGeo=new THREE.SphereGeometry(.024,10,8);
+      const nipMat=new THREE.MeshStandardMaterial({color:new THREE.Color(0x8b4a2e),roughness:.75});
       const nip=new THREE.Mesh(nipGeo,nipMat);
-      nip.position.set(side*.2,.18,.35+rz+.018);
-      nip.userData.isBreast=true;
-      breastGroup.add(nip);
+      nip.position.set(side*aiShift,.16,.33+rz+.016);
+      nip.userData.isBreast=true;breastGroup.add(nip);
     });
   }
 
-  function animate(){
-    animFrameId=requestAnimationFrame(animate);
-    if(renderer&&scene&&camera) renderer.render(scene,camera);
-  }
-
-  // ── PHOTO MODE ────────────────────────────────────
+  // ── PHOTO OVERLAY ─────────────────────────────────
   function loadPhotoView(idx){
     currentPhotoIdx=idx;
     const img=document.getElementById('photo-base');
-    if(img&&photos[idx]){
-      img.src=photos[idx];
-      img.onload=()=>updatePhotoOverlay();
-    }
-    [0,1,2].forEach(i=>{
-      const t=document.getElementById('pthumb-'+i);
-      if(t) t.style.borderColor=i===idx?'var(--sim)':'var(--border)';
-    });
+    if(!img||!photos[idx])return;
+    img.src=photos[idx];
+    img.onload=()=>updatePhotoOverlay();
+    [0,1,2].forEach(i=>{const t=document.getElementById('pthumb-'+i);if(t)t.style.borderColor=i===idx?'var(--sim)':'var(--border)';});
   }
 
   function buildPhotoThumbs(){
-    const c=document.getElementById('view-thumbs'); if(!c)return;
+    const c=document.getElementById('view-thumbs');if(!c)return;
     const lb=['Frontal','Lat.D','Lat.E'];
     c.innerHTML=photos.map((s,i)=>s?`
     <div id="pthumb-${i}" onclick="swPhoto(${i})" style="cursor:pointer;border:2px solid ${i===0?'var(--sim)':'var(--border)'};border-radius:8px;overflow:hidden">
@@ -2011,62 +2141,117 @@ PageInit.simulator = () => {
       <div style="font-size:8px;color:rgba(255,255,255,.6);text-align:center;padding:2px;background:rgba(0,0,0,.5)">${lb[i]}</div>
     </div>`:'').join('');
   }
-
   window.swPhoto=loadPhotoView;
 
   function updatePhotoOverlay(){
-    if(!showAfter){
-      ['po-L','po-R','po-hL','po-hR','po-edgeL','po-edgeR'].forEach(id=>{const e=document.getElementById(id);if(e)e.setAttribute('d','');});
-      return;
-    }
+    const ids=['poL','poR','hlpL','hlpR','ebL','ebR'];
+    if(!showAfter){ids.forEach(id=>{const e=document.getElementById(id);if(e)e.setAttribute('d','');});return;}
+
     const W=400,H=600;
-    const cx=(overlayPos.cx/100)*W, cy=(overlayPos.cy/100)*H;
+    // Use AI-detected positions or fallback
+    let lx,ly,rx2,ry2;
+    if(aiData?.breast_left_center_x){
+      lx=(aiData.breast_left_center_x/100)*W;
+      rx2=(aiData.breast_right_center_x/100)*W;
+      ly=(aiData.breast_left_center_y/100)*H;
+      ry2=(aiData.breast_right_center_y/100)*H;
+    } else {
+      const cx=(overlayPos.cx/100)*W,cy=(overlayPos.cy/100)*H;
+      const gap=aiData?.inter_breast_gap_percent?(aiData.inter_breast_gap_percent/100)*W:46;
+      lx=cx-gap/2;rx2=cx+gap/2;ly=cy;ry2=cy;
+    }
+
     const vol=P.volume;
-    const baseR=26+(vol-100)/700*50;
-    const pm={low:.7,mod:1,high:1.3,xh:1.55}[P.perfil]||1;
-    const rx=baseR*({round:1,oval:.9,tear:.85}[P.formato]||1);
-    const ry=baseR*pm*({round:.9,oval:1,tear:1.1}[P.formato]||.9);
-    const gap=46,sf=P.simetrico?1:.93;
-    const bL={x:cx-gap/2,y:cy},bR={x:cx+gap/2,y:cy};
+    const baseR=24+(vol-100)/700*52;
+    const pm={low:.68,mod:1,high:1.32,xh:1.58}[P.perfil]||1;
+    const bRx=baseR*({round:1,oval:.88,tear:.83}[P.formato]||1);
+    const bRy=baseR*pm*({round:.9,oval:1.02,tear:1.12}[P.formato]||.9);
+    const sf=P.simetrico?1:.93;
 
-    function rPath(x,y,rx2,ry2){return `M${x},${y-ry2} C${x+rx2*1.1},${y-ry2} ${x+rx2},${y+ry2*.55} ${x+rx2*.75},${y+ry2*.75} C${x+rx2*.4},${y+ry2} ${x-rx2*.4},${y+ry2} ${x-rx2*.75},${y+ry2*.75} C${x-rx2},${y+ry2*.55} ${x-rx2*1.1},${y-ry2} ${x},${y-ry2}Z`;}
-    function tPath(x,y,rx2,ry2){const t=y-ry2*.55,b=y+ry2*.6;return `M${x},${t} C${x+rx2},${t} ${x+rx2*1.1},${y} ${x+rx2*.9},${b} C${x+rx2*.45},${b+ry2*.18} ${x-rx2*.45},${b+ry2*.18} ${x-rx2*.9},${b} C${x-rx2*1.1},${y} ${x-rx2},${t} ${x},${t}Z`;}
+    function rp(x,y,rx3,ry3){return `M${x},${y-ry3} C${x+rx3*1.1},${y-ry3} ${x+rx3},${y+ry3*.55} ${x+rx3*.78},${y+ry3*.75} C${x+rx3*.42},${y+ry3} ${x-rx3*.42},${y+ry3} ${x-rx3*.78},${y+ry3*.75} C${x-rx3},${y+ry3*.55} ${x-rx3*1.1},${y-ry3} ${x},${y-ry3}Z`;}
+    function tp(x,y,rx3,ry3){const t=y-ry3*.52,b=y+ry3*.6;return `M${x},${t} C${x+rx3},${t} ${x+rx3*1.1},${y} ${x+rx3*.88},${b} C${x+rx3*.44},${b+ry3*.2} ${x-rx3*.44},${b+ry3*.2} ${x-rx3*.88},${b} C${x-rx3*1.1},${y} ${x-rx3},${t} ${x},${t}Z`;}
 
-    const pfn=P.formato==='tear'?tPath:rPath;
-    const pL=pfn(bL.x,bL.y,rx,ry), pR=pfn(bR.x,bR.y,rx*sf,ry*sf);
-    ['L','R'].forEach((s,i)=>{
-      const p=i===0?pL:pR;
-      document.getElementById('po-'+s)?.setAttribute('d',p);
-      document.getElementById('po-h'+s)?.setAttribute('d',p);
-      document.getElementById('po-edge'+s)?.setAttribute('d',p);
-    });
+    const pfn=P.formato==='tear'?tp:rp;
+    const pL=pfn(lx,ly,bRx,bRy),pR=pfn(rx2,ry2,bRx*sf,bRy*sf);
+
+    document.getElementById('poL')?.setAttribute('d',pL);
+    document.getElementById('poR')?.setAttribute('d',pR);
+    document.getElementById('hlpL')?.setAttribute('d',pL);
+    document.getElementById('hlpR')?.setAttribute('d',pR);
+    document.getElementById('ebL')?.setAttribute('d',pL);
+    document.getElementById('ebR')?.setAttribute('d',pR);
+
+    // Update shadow ellipses
+    document.getElementById('shL')?.setAttribute('cx',lx);
+    document.getElementById('shL')?.setAttribute('cy',ly+bRy+4);
+    document.getElementById('shL')?.setAttribute('rx',bRx*.7);
+    document.getElementById('shR')?.setAttribute('cx',rx2);
+    document.getElementById('shR')?.setAttribute('cy',ry2+bRy*sf+4);
+    document.getElementById('shR')?.setAttribute('rx',bRx*.7*sf);
+
+    // Show AI dot landmarks
+    document.getElementById('ai-dot-L')?.setAttribute('cx',lx);
+    document.getElementById('ai-dot-L')?.setAttribute('cy',ly);
+    document.getElementById('ai-dot-R')?.setAttribute('cx',rx2);
+    document.getElementById('ai-dot-R')?.setAttribute('cy',ry2);
   }
 
   // Overlay drag
   window.handleDragStart=function(e){
     e.stopPropagation();
-    const img=document.getElementById('photo-base'); if(!img)return;
+    const img=document.getElementById('photo-base');if(!img)return;
     const r=img.getBoundingClientRect();
     const ds={sx:e.clientX,sy:e.clientY,scx:overlayPos.cx,scy:overlayPos.cy,w:r.width,h:r.height};
-    document.onmousemove=function(ev){
-      overlayPos.cx=Math.max(20,Math.min(80,ds.scx+(ev.clientX-ds.sx)/ds.w*100));
-      overlayPos.cy=Math.max(20,Math.min(65,ds.scy+(ev.clientY-ds.sy)/ds.h*100));
+    const mmv=ev=>{
+      overlayPos.cx=Math.max(15,Math.min(85,ds.scx+(ev.clientX-ds.sx)/ds.w*100));
+      overlayPos.cy=Math.max(15,Math.min(70,ds.scy+(ev.clientY-ds.sy)/ds.h*100));
+      // Update aiData positions too
+      if(aiData){
+        const dx=overlayPos.cx-((aiData.breast_left_center_x+aiData.breast_right_center_x)/2);
+        const dy=overlayPos.cy-((aiData.breast_left_center_y+aiData.breast_right_center_y)/2);
+        aiData.breast_left_center_x+=dx;aiData.breast_left_center_y+=dy;
+        aiData.breast_right_center_x+=dx;aiData.breast_right_center_y+=dy;
+      }
       updatePhotoOverlay();
     };
-    document.onmouseup=()=>{document.onmousemove=null;document.onmouseup=null;};
+    document.addEventListener('mousemove',mmv);
+    document.addEventListener('mouseup',()=>document.removeEventListener('mousemove',mmv),{once:true});
   };
 
-  // ── MODE SWITCH ────────────────────────────────────
+  // ── VIEW MODE ─────────────────────────────────────
   window.setVMode=function(mode){
     currentMode=mode;
-    const tc=document.getElementById('three-canvas'), pm=document.getElementById('photo-mode');
+    const tc=document.getElementById('three-canvas'),pm=document.getElementById('photo-mode');
     const vt=document.getElementById('view-thumbs');
-    if(mode==='3D'){ if(tc)tc.style.display='block'; if(pm)pm.style.display='none'; if(vt)vt.style.display='none'; if(renderer)buildBodyMesh(); }
-    else if(mode==='Foto'||mode==='VR'){ if(tc)tc.style.display='none'; if(pm){pm.style.removeProperty('display');pm.style.display='flex';} if(vt)vt.style.display='flex'; updatePhotoOverlay(); }
-    ['3D','Foto','VR'].forEach(m=>{const b=document.getElementById('vmode-'+m);if(b){b.style.background=m===mode?'var(--s3)':'';b.style.color=m===mode?'var(--text)':'';}});
+    if(mode==='3D'){
+      if(tc)tc.style.display='block';
+      if(pm)pm.style.display='none';
+      if(vt)vt.style.display='none';
+      buildBodyMesh();
+    } else {
+      if(tc)tc.style.display='none';
+      if(pm){pm.style.removeProperty('display');pm.style.display='flex';}
+      if(vt)vt.style.display='flex';
+      updatePhotoOverlay();
+    }
+    ['3D','Foto'].forEach(m=>{const b=document.getElementById('vmode-'+m);if(b){b.style.background=m===mode?'var(--s3)':'';b.style.color=m===mode?'var(--text)':'';}});
   };
 
-  // ── PARAM CONTROLS ─────────────────────────────────
+  // ── BEFORE/AFTER ──────────────────────────────────
+  window.setBA=function(after){
+    showAfter=after;
+    const ba=document.getElementById('ba-a'),bb=document.getElementById('ba-b');
+    if(ba){ba.style.background=after?'rgba(167,139,250,.9)':'rgba(167,139,250,.25)';ba.style.color=after?'white':'rgba(255,255,255,.5)';}
+    if(bb){bb.style.background=!after?'rgba(255,255,255,.18)':'rgba(255,255,255,.06)';bb.style.color=!after?'white':'rgba(255,255,255,.4)';}
+    if(currentMode==='3D'){
+      breastGroup&&breastGroup.children.filter(c=>c.userData.isBreast).forEach(c=>c.visible=after);
+    } else {
+      if(after) buildBodyMesh();
+      updatePhotoOverlay();
+    }
+  };
+
+  // ── PARAMS ────────────────────────────────────────
   window.ap=function(key,delta){
     if(key==='volume'){P.volume=Math.max(100,Math.min(800,P.volume+delta));document.getElementById('sv').value=P.volume;document.getElementById('dv').textContent=P.volume+' cc';}
     if(key==='diam'){P.diam=Math.max(8,Math.min(16,+(P.diam+delta).toFixed(1)));document.getElementById('sd').value=P.diam;document.getElementById('dd').textContent=P.diam.toString().replace('.',',')+' cm';}
@@ -2087,14 +2272,13 @@ PageInit.simulator = () => {
 
   function refreshView(){
     updateBadge();
-    if(currentMode==='3D') buildBodyMesh();
+    if(currentMode==='3D')buildBodyMesh();
     else updatePhotoOverlay();
   }
-
   function refreshStyles(){
     ['round','oval','tear'].forEach(k=>{
-      ['fmt-','fi-'].forEach(pre=>{
-        const el=document.getElementById(pre+k);
+      ['fmt-','fi-'].forEach(p=>{
+        const el=document.getElementById(p+k);
         if(el){el.style.borderColor=P.formato===k?'var(--sim)':'var(--border)';el.style.color=P.formato===k?'var(--sim)':'var(--muted)';el.style.background=P.formato===k?'rgba(167,139,250,.1)':'';}
       });
     });
@@ -2107,33 +2291,21 @@ PageInit.simulator = () => {
       if(el){el.style.borderColor=P.metodo===k?'var(--sim)':'var(--border)';el.style.background=P.metodo===k?'rgba(167,139,250,.1)':'';}
     });
   }
-
   function updateBadge(){
     const pl={low:'Baixo',mod:'Moderado',high:'Alto',xh:'Extra alto'};
     const fl={round:'⬤ Redondo',oval:'⬭ Oval',tear:'▽ Teardrop'};
-    const setT=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t;};
-    setT('ib-vol',P.volume+' cc'); setT('ib-diam','Ø '+P.diam+' cm');
-    setT('ib-perf','Perfil '+pl[P.perfil]); setT('ib-fmt',fl[P.formato]);
+    const s=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t;};
+    s('ib-vol',P.volume+' cc');s('ib-diam','Ø '+P.diam+' cm');
+    s('ib-perf','Perfil '+pl[P.perfil]);s('ib-fmt',fl[P.formato]);
   }
 
-  // ── BEFORE / AFTER ─────────────────────────────────
-  window.setBA=function(after){
-    showAfter=after;
-    const ba=document.getElementById('ba-a'), bb=document.getElementById('ba-b');
-    if(ba){ba.style.background=after?'rgba(167,139,250,.9)':'rgba(167,139,250,.3)';ba.style.color=after?'white':'rgba(255,255,255,.5)';}
-    if(bb){bb.style.background=!after?'rgba(255,255,255,.2)':'rgba(255,255,255,.08)';bb.style.color=!after?'white':'rgba(255,255,255,.5)';}
-    if(currentMode==='3D'){
-      breastGroup&&breastGroup.children.filter(c=>c.userData.isBreast).forEach(c=>{c.visible=after;});
-    } else updatePhotoOverlay();
-  };
-
-  // ── ZOOM ───────────────────────────────────────────
+  // ── ZOOM ──────────────────────────────────────────
   window.doZoom=function(f){
-    if(currentMode==='3D'){if(camera){camera.position.z=Math.max(1.5,Math.min(7,camera.position.z*f));}}
-    else{const w=document.getElementById('photo-sim-wrap');if(w){const cur=parseFloat(w.dataset.zoom||1)*f;w.dataset.zoom=cur;w.style.transform=`scale(${Math.max(.4,Math.min(3,cur))})`;};}
+    if(currentMode==='3D'&&camera){camera.position.z=Math.max(1.5,Math.min(8,camera.position.z*f));}
+    else{const w=document.getElementById('photo-sim-wrap');if(w){const cz=parseFloat(w.dataset.z||1)*f;w.dataset.z=cz;w.style.transform=`scale(${Math.max(.35,Math.min(3,cz))})`;};}
   };
 
-  // ── TABS / SECTIONS ────────────────────────────────
+  // ── TABS / SECTIONS ───────────────────────────────
   window.setTab=function(t){
     document.getElementById('panel-proc').style.display=t==='proc'?'flex':'none';
     document.getElementById('panel-tools').style.display=t==='tools'?'block':'none';
@@ -2144,11 +2316,29 @@ PageInit.simulator = () => {
   };
   window.sec=function(k){
     const bd=document.getElementById(k+'-bd'),ic=document.getElementById(k+'-ico');
-    if(!bd)return; const o=bd.style.display!=='none';
-    bd.style.display=o?'none':'block'; if(ic)ic.textContent=o?'+':'−';
+    if(!bd)return;const o=bd.style.display!=='none';
+    bd.style.display=o?'none':'block';if(ic)ic.textContent=o?'+':'−';
   };
 
-  // ── CATALOG ────────────────────────────────────────
+  // ── RESET ─────────────────────────────────────────
+  window.resetSim=function(){
+    if(animId)cancelAnimationFrame(animId);renderer=null;scene=null;camera=null;breastGroup=null;
+    photos=[null,null,null];aiData=null;
+    document.getElementById('step-viewer').style.display='none';
+    document.getElementById('sim-top-actions').style.display='none';
+    const su=document.getElementById('step-upload');
+    su.style.removeProperty('display');su.style.display='flex';
+    [0,1,2].forEach(i=>{
+      const th=document.getElementById('thumb-'+i),ph=document.getElementById('slot-ph-'+i);
+      const ok=document.getElementById('slot-ok-'+i),sl=document.getElementById('slot-'+i);
+      if(th){th.style.display='none';th.src='';}if(ph)ph.style.display='flex';
+      if(ok)ok.style.display='none';if(sl)sl.style.borderColor='var(--border)';
+    });
+    const al=document.getElementById('ai-log');if(al)al.innerHTML='';
+    checkReady();
+  };
+
+  // ── CATALOG ───────────────────────────────────────
   window.openCat=function(){const m=document.getElementById('cat-modal');if(m){m.style.removeProperty('display');m.style.display='flex';}renderCatItems(IMPL_DB);};
   window.closeCat=function(){const m=document.getElementById('cat-modal');if(m)m.style.display='none';};
   window.filterCatItems=function(q){
@@ -2158,8 +2348,7 @@ PageInit.simulator = () => {
   };
   function renderCatItems(items){
     const list=document.getElementById('cat-list'),cnt=document.getElementById('cat-cnt');
-    if(cnt)cnt.textContent=items.length+' resultados';
-    if(!list)return;
+    if(cnt)cnt.textContent=items.length+' resultados';if(!list)return;
     const pl={low:'Baixo',mod:'Moderado',high:'Alto',xh:'Extra alto'};
     const fl={round:'⬤ Redondo',oval:'⬭ Oval',tear:'▽ Teardrop'};
     list.innerHTML=items.map(it=>`
@@ -2169,56 +2358,33 @@ PageInit.simulator = () => {
         <span style="background:rgba(167,139,250,.12);color:var(--sim);padding:2px 7px;border-radius:4px;font-size:9px;font-family:var(--mono)">${it.vol}cc</span>
       </div>
       <div style="display:flex;gap:10px;margin-top:8px;font-size:10px;color:var(--muted)">
-        <span>Ø <b style="color:var(--text)">${it.diam}cm</b></span><span>Proj <b style="color:var(--text)">${it.proj}cm</b></span>
-        <span>Perfil <b style="color:var(--text)">${pl[it.perfil]}</b></span><span>${fl[it.formato]}</span>
+        <span>Ø <b style="color:var(--text)">${it.diam}cm</b></span>
+        <span>Proj <b style="color:var(--text)">${it.proj}cm</b></span>
+        <span>Perfil <b style="color:var(--text)">${pl[it.perfil]}</b></span>
+        <span>${fl[it.formato]}</span>
       </div>
     </div>`).join('');
   }
   window.pickImpl=function(vol,diam,perf,fmt){
     P.volume=vol;P.diam=diam;P.perfil=perf;P.formato=fmt;
-    document.getElementById('sv').value=vol; document.getElementById('dv').textContent=vol+' cc';
-    document.getElementById('sd').value=diam; document.getElementById('dd').textContent=diam.toString().replace('.',',')+' cm';
+    document.getElementById('sv').value=vol;document.getElementById('dv').textContent=vol+' cc';
+    document.getElementById('sd').value=diam;document.getElementById('dd').textContent=diam.toString().replace('.',',')+' cm';
     refreshStyles();refreshView();closeCat();
   };
 
-  // ── RESET ──────────────────────────────────────────
-  window.resetSim=function(){
-    if(animFrameId)cancelAnimationFrame(animFrameId);
-    photos=[null,null,null];
-    document.getElementById('step-viewer').style.display='none';
-    document.getElementById('sim-top-actions').style.display='none';
-    const su=document.getElementById('step-upload');
-    su.style.removeProperty('display'); su.style.display='flex';
-    [0,1,2].forEach(i=>{
-      const th=document.getElementById('thumb-'+i),ph=document.getElementById('slot-ph-'+i);
-      const ok=document.getElementById('slot-ok-'+i),sl=document.getElementById('slot-'+i);
-      if(th){th.style.display='none';th.src='';} if(ph)ph.style.display='flex';
-      if(ok)ok.style.display='none'; if(sl)sl.style.borderColor='var(--border)';
-    });
-    checkReady();
-  };
-
-  // ── EXPORT / SHARE ─────────────────────────────────
+  // ── EXPORT / SHARE ────────────────────────────────
   window.simShare=function(){const b=document.querySelector('[onclick="simShare()"]');if(b){const o=b.textContent;b.textContent='✓ Link copiado!';setTimeout(()=>b.textContent=o,2500);}};
   window.exportSim=function(){
     if(currentMode==='3D'&&renderer){
       renderer.render(scene,camera);
-      const a=document.createElement('a');a.href=renderer.domElement.toDataURL('image/jpeg',.92);a.download='simulacao-3d.jpg';a.click();
+      const a=document.createElement('a');a.href=renderer.domElement.toDataURL('image/jpeg',.92);a.download='sim-3d.jpg';a.click();
     } else {
       const img=document.getElementById('photo-base');
-      if(img){const a=document.createElement('a');a.href=img.src;a.download='simulacao-mama.jpg';a.click();}
+      if(img){const a=document.createElement('a');a.href=img.src;a.download='sim-foto.jpg';a.click();}
     }
   };
 
-  // ── LOAD THREE.JS ──────────────────────────────────
-  if(!window.THREE){
-    const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-    s.onload=()=>console.log('Three.js loaded');
-    document.head.appendChild(s);
-  }
-
-  // ── INIT ───────────────────────────────────────────
+  // ── INIT ──────────────────────────────────────────
   document.getElementById('step-upload').style.removeProperty('display');
   document.getElementById('step-upload').style.display='flex';
   document.getElementById('sim-top-actions').style.display='none';
