@@ -2420,49 +2420,37 @@ Return ONLY valid JSON (no markdown, no extra text):
     const range = kf2.angle - kf1.angle;
     const t = range===0 ? 0 : (pseudo3dAngle - kf1.angle) / range;
 
-    if(t <= 0.02) {
+    if(t <= 0.04) {
       renderPhotoToCanvas('main-canvas', kf1.idx, withAug);
-    } else if(t >= 0.98) {
+    } else if(t >= 0.96) {
       renderPhotoToCanvas('main-canvas', kf2.idx, withAug);
     } else {
-      // BLEND: render both to offscreen, then composite
+      // CLEAN CROSSFADE — no perspective squeeze (avoids moiré artifacts)
+      // Both photos rendered at same size, cross-dissolved cleanly
       const off1 = renderPhotoToOffscreen(kf1.idx, withAug);
       const off2 = renderPhotoToOffscreen(kf2.idx, withAug);
       if(!off1||!off2){ renderPhotoToCanvas('main-canvas', kf1.idx, withAug); return; }
 
-      // Canvas: use larger of the two
-      canvas.width  = Math.max(off1.width,  off2.width);
-      canvas.height = Math.max(off1.height, off2.height);
+      // Target canvas = size of the front photo (idx1), fallback to larger
+      const frontOff = renderPhotoToOffscreen(1, false);
+      const TW = frontOff ? frontOff.width  : Math.max(off1.width, off2.width);
+      const TH = frontOff ? frontOff.height : Math.max(off1.height, off2.height);
+
+      canvas.width = TW; canvas.height = TH;
       const ctx = canvas.getContext('2d');
 
-      // 3D perspective illusion:
-      // Squeeze the images horizontally as if turning a page in 3D space
-      // off1 (going away) gets squished
-      // off2 (coming in) starts squished and expands
-      const PERSP = 0.15; // how much to squish at max (0=none, 0.5=half width)
+      // 1. Draw base photo (kf1) fully opaque
+      ctx.globalAlpha = 1;
+      ctx.drawImage(off1, 0, 0, off1.width, off1.height, 0, 0, TW, TH);
 
-      // Squeeze factor for each frame:
-      const sq1 = 1 - t * PERSP;       // kf1: full at t=0, squished at t=1
-      const sq2 = 1 - (1-t) * PERSP;   // kf2: squished at t=0, full at t=1
-
-      // Apply horizontal squeeze via canvas transform
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-
-      // Draw off1 (weighted 1-t)
-      ctx.save();
-      ctx.globalAlpha = 1-t;
-      const w1 = off1.width * sq1;
-      const ox1 = (canvas.width - w1) / 2;
-      ctx.drawImage(off1, 0, 0, off1.width, off1.height, ox1, 0, w1, canvas.height);
-      ctx.restore();
-
-      // Draw off2 (weighted t)
-      ctx.save();
-      ctx.globalAlpha = t;
-      const w2 = off2.width * sq2;
-      const ox2 = (canvas.width - w2) / 2;
-      ctx.drawImage(off2, 0, 0, off2.width, off2.height, ox2, 0, w2, canvas.height);
-      ctx.restore();
+      // 2. Cross-dissolve: overlay kf2 with alpha=t
+      // Use smooth S-curve for the blend to avoid midpoint dullness
+      const blend = t < 0.5
+        ? 2*t*t
+        : 1-2*(1-t)*(1-t);
+      ctx.globalAlpha = blend;
+      ctx.drawImage(off2, 0, 0, off2.width, off2.height, 0, 0, TW, TH);
+      ctx.globalAlpha = 1;
     }
 
     // Update angle indicator
