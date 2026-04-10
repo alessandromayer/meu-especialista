@@ -2498,7 +2498,7 @@ Return ONLY valid JSON (no markdown, no extra text):
     document.getElementById('step-proc').style.display='none';
     const sa=document.getElementById('step-accept');sa.style.removeProperty('display');sa.style.display='flex';
     // Show the FRONTAL view augmented on preview canvas
-    renderToCanvas('preview-canvas',1,true);
+    renderPhotoToCanvas('preview-canvas',1,true);
   }
 
   window.refazer3D=function(){
@@ -2517,8 +2517,11 @@ Return ONLY valid JSON (no markdown, no extra text):
     if(ar&&aiData)ar.innerHTML=`Copa base: ${aiData.cup_size||'—'}<br>Pele: rgb(${aiData.skin_r||'—'},${aiData.skin_g||'—'},${aiData.skin_b||'—'})<br>${aiData.notes||''}`;
 
     buildViewThumbs();
-    setCurrentView(1); // start on FRENTE
-    refreshStyles();updateBadge();
+    setCurrentView(1);
+    refreshStyles(); updateBadge();
+    pseudo3dAngle = 0;
+    initPseudo3D();
+    renderPseudo3D(showAfter);
   };
 
   window.rateQuality=function(n){
@@ -2541,8 +2544,9 @@ Return ONLY valid JSON (no markdown, no extra text):
 
   window.setCurrentView=function(idx){
     currentView=idx;
+    pseudo3dAngle=0;
     [0,1,2].forEach(i=>{const t=document.getElementById('vthumb-'+i);if(t)t.style.borderColor=i===idx?'var(--sim)':'var(--border)';});
-    renderCurrentView();
+    renderPseudo3D(showAfter);
   };
 
   // ── BEFORE/AFTER ──────────────────────────────────
@@ -2553,7 +2557,7 @@ Return ONLY valid JSON (no markdown, no extra text):
     if(ba){ba.style.background=after?'rgba(167,139,250,.9)':'rgba(167,139,250,.25)';ba.style.color=after?'white':'rgba(255,255,255,.5)';}
     if(bb){bb.style.background=!after?'rgba(255,255,255,.18)':'rgba(255,255,255,.06)';bb.style.color=!after?'white':'rgba(255,255,255,.4)';}
     if(bt)bt.style.display=!after?'block':'none';
-    renderCurrentView();
+    renderPseudo3D(after);
   };
 
   window.toggleSideBySide=function(){
@@ -2570,7 +2574,7 @@ Return ONLY valid JSON (no markdown, no extra text):
       if(vn)vn.style.display='flex';
       if(vs)vs.style.display='none';
       if(btn)btn.style.background='';
-      renderCurrentView();
+      renderPseudo3D(showAfter);
     }
   };
 
@@ -2585,14 +2589,14 @@ Return ONLY valid JSON (no markdown, no extra text):
   window.ap=function(key,delta){
     if(key==='volume'){P.volume=Math.max(100,Math.min(800,P.volume+delta));if(document.getElementById('sv'))document.getElementById('sv').value=P.volume;document.getElementById('dv').textContent=P.volume+' cc';P.volumeL=P.volume;P.volumeR=P.volume;}
     if(key==='diam'){P.diam=Math.max(8,Math.min(16,+(P.diam+delta).toFixed(1)));document.getElementById('sd').value=P.diam;document.getElementById('dd').textContent=P.diam.toString().replace('.',',')+' cm';}
-    renderCurrentView();
+    renderPseudo3D(showAfter);
   };
   window.sp2=function(key,val){
     if(key==='volume'){P.volume=+val;document.getElementById('dv').textContent=val+' cc';P.volumeL=P.volume;P.volumeR=P.volume;}
     if(key==='diam'){P.diam=+val;document.getElementById('dd').textContent=(+val).toString().replace('.',',')+' cm';}
-    renderCurrentView();
+    renderPseudo3D(showAfter);
   };
-  window.sp=function(key,val){P[key]=val;refreshStyles();renderCurrentView();};
+  window.sp=function(key,val){P[key]=val;refreshStyles();renderPseudo3D(showAfter);};
   window.setSide=function(side){
     P.side=side;
     // UI: highlight selected
@@ -2607,25 +2611,25 @@ Return ONLY valid JSON (no markdown, no extra text):
     if(side==='B'){if(both)both.style.display='block';if(vL)vL.style.display='none';if(vR)vR.style.display='none';}
     else if(side==='L'){if(both)both.style.display='none';if(vL)vL.style.display='block';if(vR)vR.style.display='none';}
     else if(side==='R'){if(both)both.style.display='none';if(vL)vL.style.display='none';if(vR)vR.style.display='block';}
-    renderCurrentView();
+    renderPseudo3D(showAfter);
   };
   window.apSide=function(side,delta){
     const key='volume'+side;
     P[key]=Math.max(100,Math.min(800,(P[key]||P.volume)+delta));
     const disp=document.getElementById('dv-'+side);if(disp)disp.textContent=P[key]+' cc';
     const sl=document.getElementById('sv-'+side);if(sl)sl.value=P[key];
-    renderCurrentView();
+    renderPseudo3D(showAfter);
   };
   window.spSide=function(side,val){
     P['volume'+side]=+val;
     const disp=document.getElementById('dv-'+side);if(disp)disp.textContent=val+' cc';
-    renderCurrentView();
+    renderPseudo3D(showAfter);
   };
   window.toggleSym=function(){
     P.simetrico=!P.simetrico;
     document.getElementById('sym-t').style.background=P.simetrico?'var(--sim)':'var(--border)';
     document.getElementById('sym-k').style.transform=P.simetrico?'translateX(18px)':'translateX(0)';
-    renderCurrentView();
+    renderPseudo3D(showAfter);
   };
 
   function refreshStyles(){
@@ -2707,7 +2711,7 @@ Return ONLY valid JSON (no markdown, no extra text):
     P.volume=vol;P.diam=diam;P.perfil=perf;P.formato=fmt;
     document.getElementById('sv').value=vol;document.getElementById('dv').textContent=vol+' cc';
     document.getElementById('sd').value=diam;document.getElementById('dd').textContent=diam.toString().replace('.',',')+' cm';
-    refreshStyles();renderCurrentView();closeCat();
+    refreshStyles();renderPseudo3D(showAfter);closeCat();
   };
 
   // ── INIT ──────────────────────────────────────────
