@@ -9,7 +9,7 @@
      Substitui SUPABASE_URL e SUPABASE_ANON_KEY
      pelos valores do teu projeto em supabase.com
      ================================================ -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7"></script>
 <script>
 // ─── CONFIG — cola aqui os teus valores do Supabase ───
 const SUPABASE_URL  = 'https://acqpjtxpicmxciswkfra.supabase.co';
@@ -424,6 +424,44 @@ td { padding: 11px 16px; font-size: 12px; vertical-align: middle; }
 <body>
 <!-- AUTH SCREEN -->
 <div id="auth-screen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)">
+<div style="width:100%;max-width:420px;padding:24px">
+    <div style="text-align:center;margin-bottom:36px">
+      <div style="width:56px;height:56px;border-radius:16px;background:var(--pron);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+          <path d="M13 2C7.48 2 3 6.48 3 13s4.48 11 10 11 10-4.48 10-11S18.52 2 13 2z"/>
+          <path d="M9 13h8M13 9v8"/>
+        </svg>
+      </div>
+      <div style="font-size:20px;font-weight:700;letter-spacing:-.4px">Meu Especialista</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px">Entra na tua conta</div>
+    </div>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:28px">
+      <div id="auth-error" style="display:none;padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:16px;line-height:1.5"></div>
+      <div class="field">
+        <label>Email</label>
+        <input class="input" id="auth-email" type="email" placeholder="dr.silva@clinica.com" autocomplete="email"
+          onkeydown="if(event.key==='Enter')authLogin()">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div style="position:relative">
+          <input class="input" id="auth-pass" type="password" placeholder="••••••••" autocomplete="current-password"
+            onkeydown="if(event.key==='Enter')authLogin()" style="padding-right:44px">
+          <button onclick="const i=document.getElementById('auth-pass');i.type=i.type==='password'?'text':'password'"
+            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px">👁</button>
+        </div>
+      </div>
+      <button id="auth-submit" onclick="authLogin()"
+        style="width:100%;padding:12px;background:linear-gradient(135deg,var(--pron),var(--crm));border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px">
+        Entrar
+      </button>
+      <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--muted)">
+        Sem conta? <a href="#" onclick="renderAuthScreen('register');return false" style="color:var(--pron);text-decoration:none;font-weight:500">Criar conta grátis</a>
+        &nbsp;·&nbsp;
+        <a href="#" onclick="renderAuthScreen('reset');return false" style="color:var(--muted);text-decoration:none">Esqueci a password</a>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="app-shell" id="app-shell" style="display:none">
